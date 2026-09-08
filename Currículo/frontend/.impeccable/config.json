@@ -1,0 +1,18 @@
+{
+  "projectName": "Portfolio Elias Ribeiro dos Reis",
+  "version": "1.0.0",
+  "designSystem": "Google Stitch Cyber Intelligence",
+  "theme": {
+    "background": "#0d1515",
+    "primary": "#00f2ff",
+    "secondary": "#c0c1ff",
+    "text": "#dce4e4"
+  },
+  "rules": {
+    "maxOpacityBackground": 0.14,
+    "fpsCap": 30,
+    "wcagLevel": "AA",
+    "preserveContent": true,
+    "reducedMotionSupport": true
+  }
+}
