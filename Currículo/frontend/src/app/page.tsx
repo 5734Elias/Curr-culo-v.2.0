@@ -41,19 +41,19 @@ export default function HomePage() {
                   {PROFILE.headline}. Trajetória sólida que integra desenvolvimento full-stack em Java e Python, APIs REST com Spring Boot, engenharia de dados, nuvem AWS/Azure e cibersegurança.
                 </p>
 
-                {/* Métricas Rápidas */}
+                {/* Indicadores Principais */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#3a494b]/60 font-mono">
                   <div>
-                    <span className="text-2xl font-bold text-[#00f2ff]">{COURSES.length}+</span>
-                    <span className="text-[11px] text-[#b9cacb] block">Cursos Auditados</span>
+                    <span className="text-2xl font-bold text-[#00f2ff]">{COURSES.length}</span>
+                    <span className="text-[11px] text-[#b9cacb] block">Cursos e Certificados</span>
                   </div>
                   <div>
                     <span className="text-2xl font-bold text-[#c0c1ff]">5+</span>
-                    <span className="text-[11px] text-[#b9cacb] block">Empresas Atendidas</span>
+                    <span className="text-[11px] text-[#b9cacb] block">Organizações Atendidas</span>
                   </div>
                   <div>
-                    <span className="text-2xl font-bold text-[#ffe173]">100%</span>
-                    <span className="text-[11px] text-[#b9cacb] block">Dados Verificáveis</span>
+                    <span className="text-2xl font-bold text-[#ffe173]">Foco</span>
+                    <span className="text-[11px] text-[#b9cacb] block">Qualidade & Segurança</span>
                   </div>
                 </div>
 

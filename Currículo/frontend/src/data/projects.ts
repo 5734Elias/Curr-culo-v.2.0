@@ -7,11 +7,11 @@ const rawProjects: ProjectCase[] = [
     summary:
       'Arquitetura de agentes autônomos de Inteligência Artificial para processamento multimodal de linguagem, visão e dados com observabilidade e RAG.',
     context:
-      'Solução desenvolvida como fruto das especializações avançadas em IA no SENAI (2026), focando em automação corporativa com agentes autônomos, recuperação aumentada de informação (RAG) e avaliação responsável.',
+      'Solução desenvolvida a partir das formações em IA Generativa no SENAI, focando em automação corporativa com agentes autônomos, recuperação aumentada de informação (RAG) e avaliação responsável.',
     problem:
-      'Processamento manual e demorado de grandes volumes de documentação técnica, com necessidade de respostas rápidas, rastreáveis e livres de alucinações.',
+      'Processamento manual e demorado de documentação técnica extensa, com necessidade de respostas rastreáveis, contextualizadas e sem alucinações.',
     solution:
-      'Implementação de uma pipeline híbrida integrando Google Antigravity (Gemini/Imagen via Vertex AI) e Microsoft AI Foundry, utilizando LangChain/LlamaIndex para orquestração de Prompts e RAG resiliente.',
+      'Implementação de uma pipeline híbrida integrando Google Antigravity (Gemini via Vertex AI) e Microsoft AI Foundry, com orquestração de prompts, recuperação contextual e guardrails de segurança.',
     architecture: [
       'Frontend / BFF: Next.js 16 App Router + Server Actions',
       'Orquestração de IA: Microsoft AI Foundry Agent SDK + Google Antigravity Hub',
@@ -30,17 +30,25 @@ const rawProjects: ProjectCase[] = [
     ],
     securityControls: [
       'Sanitização de Prompts contra Prompt Injection',
-      'Guarda-chuva de privacidade (Sem vazamento de PII em chamadas LLM)',
-      'Chaves de API gerenciadas via variáveis de ambiente seguras',
+      'Salvaguarda de privacidade (Bloqueio de exposição de dados PII em chamadas LLM)',
+      'Credenciais gerenciadas exclusivamente via variáveis de ambiente seguras',
     ],
     testing: [
-      'Testes unitários de parsers de contexto com Vitest',
-      'Avaliação de precisão de RAG (Faithfulness & Answer Relevance)',
-      'Validação de schemas de resposta via Zod',
+      'Testes unitários de parsers e extração de contexto',
+      'Avaliação qualitativa de fidelidade e relevância das respostas geradas',
+      'Validação de tipagem e esquema de retorno via Zod',
     ],
     outcomes: [
-      { label: 'Precisão na Recuperação de Documentos', value: '94.8%', verified: true },
-      { label: 'Tempo Médio de Resposta', value: '< 1.8s', verified: true },
+      {
+        label: 'Recuperação Semântica (RAG)',
+        value: 'Arquitetura com chunking adaptativo, guardrails e respostas estritamente ancoradas na base documental',
+        verified: false,
+      },
+      {
+        label: 'Processamento e Latência',
+        value: 'Pipeline assíncrono com streaming de dados para melhoria perceptível na experiência de uso',
+        verified: false,
+      },
     ],
     links: [
       { label: 'Repositório GitHub', url: 'https://github.com/5734Elias' },
@@ -53,16 +61,16 @@ const rawProjects: ProjectCase[] = [
     summary:
       'Biblioteca customizada em Java/Spring Boot para integração nativa com protocolo MQTT e dispositivos IoT embarcados em tempo real.',
     context:
-      'Desenvolvido para conectar sistemas embarcados (FreeRTOS, ESP32, Arduino) ao ecossistema backend em Java Spring Boot com altíssima confiabilidade e baixa latência.',
+      'Desenvolvido para conectar sistemas embarcados (FreeRTOS, ESP32, Arduino) ao ecossistema backend corporativo em Java Spring Boot com resiliência.',
     problem:
-      'Dificuldade de integrar mensageria leve de sensores e atuações IoT diretamente com arquiteturas backend Java sem complexidade de boilerplate.',
+      'Dificuldade de integrar mensageria leve de sensores e atuadores IoT diretamente com arquiteturas backend Java sem excesso de código boilerplate.',
     solution:
-      'Criação de um starter/biblioteca reutilizável (spring-mqttx) com anotações declarativas para escuta de tópicos, reconexão automática e serialização JSON otimizada.',
+      'Criação de um starter/biblioteca reutilizável (spring-mqttx) com anotações declarativas para subscrição de tópicos, reconexão automática e serialização JSON otimizada.',
     architecture: [
       'Backend Core: Java 17 + Spring Boot 3',
-      'Protocolo & Transport: MQTT v3.1.1 / v5.0 sobre TCP / WebSockets',
-      'Embedded Client: C/C++ (FreeRTOS / ESP-IDF) transmitindo para o broker Mosquitto',
-      'Segurança: Autenticação mTLS e JWT nos brokers de mensageria',
+      'Protocolo & Transporte: MQTT v3.1.1 / v5.0 sobre TCP / WebSockets',
+      'Cliente Embarcado: C/C++ (FreeRTOS / ESP-IDF) transmitindo para o broker Mosquitto',
+      'Segurança: Suporte a autenticação mTLS e credenciais seguras nos brokers',
     ],
     technologies: [
       'Java',
@@ -75,16 +83,24 @@ const rawProjects: ProjectCase[] = [
       'JSON',
     ],
     securityControls: [
-      'Criptografia mTLS no transporte de pacotes MQTT',
-      'Validação estrita de tópicos por nível de privilégio no broker',
+      'Suporte a criptografia mTLS no transporte de pacotes MQTT',
+      'Validação estrita de tópicos e permissões de publicação/assinatura no broker',
     ],
     testing: [
-      'Testes de carga de publicação concorrente com Paho MQTT',
-      'Simulação de perda de sinal e reconexão automática de brokers',
+      'Testes de carga com simulação de publicação concorrente',
+      'Validação de reconexão automática com buffer em memória diante de instabilidade de rede',
     ],
     outcomes: [
-      { label: 'Taxa de Entrega de Mensagens (QoS 1)', value: '99.99%', verified: true },
-      { label: 'Latência de Processamento', value: '< 12ms', verified: true },
+      {
+        label: 'Garantia de Entrega (QoS 1)',
+        value: 'Buffer local e reconexão automática para proteção contra perdas transitórias de pacotes',
+        verified: false,
+      },
+      {
+        label: 'Desempenho de Serialização',
+        value: 'Desserialização JSON de baixa sobrecarga computacional adequada a fluxos contínuos de telemetria',
+        verified: false,
+      },
     ],
     links: [
       { label: 'Código no GitHub', url: 'https://github.com/5734Elias' },
@@ -92,20 +108,20 @@ const rawProjects: ProjectCase[] = [
   },
   {
     slug: 'fortinet-cyber-pentest-shield',
-    title: 'Infraestrutura de Defesa Cibernética e Testes de Pentest',
+    title: 'Infraestrutura de Defesa Cibernética e Laboratório de Pentest',
     summary:
       'Projeto prático de segurança ofensiva e defensiva combinando appliances Fortigate 7.4, scripts em Python para automação de scans e análise forense.',
     context:
-      'Solução técnica concebida a partir das certificações Fortinet (FCF/FCA) e especializações de Pentest e Análise Forense no SENAI.',
+      'Solução técnica concebida a partir das certificações Fortinet (FCF/FCA) e formações de Pentest e Análise Forense no SENAI.',
     problem:
-      'Vulnerabilidade de infraestruturas locais e em nuvem a ataques de dia zero, movimento lateral e exfiltração não autorizada de dados.',
+      'Necessidade de proteger ambientes de rede contra acessos não autorizados, tráfego anômalo e vulnerabilidades em serviços expostos.',
     solution:
-      'Configuração de perímetro seguro com Fortigate 7.4 (Políticas de Firewall, IPS, SSL Inspection, VPN IPsec) combinada com um scanner contínuo em Python para auditoria de portas e detecção de anomalias.',
+      'Configuração de perímetro seguro com FortiGate 7.4 (políticas de Firewall, IPS, SSL Inspection, VPN IPsec) integrada a ferramentas de varredura contínua e análise forense.',
     architecture: [
-      'Perímetro: Fortinet FortiGate 7.4 NGFW',
-      'Automação de Segurança: Python Socket/Scapy Security Tooling',
-      'Auditoria & Scans: Nmap, Metasploit Framework, Wireshark',
-      'Forense: Autopsy, Volatility Memory Forensic Tool',
+      'Perímetro de Rede: Fortinet FortiGate 7.4 NGFW',
+      'Automação de Segurança: Scripts em Python para auditoria de portas e testes de socket',
+      'Auditoria & Scans: Nmap, Wireshark e utilitários de pentest em ambiente controlado',
+      'Forense Computacional: Análise estruturada de artefatos e integridade de arquivos',
     ],
     technologies: [
       'Fortinet FortiGate 7.4',
@@ -116,18 +132,26 @@ const rawProjects: ProjectCase[] = [
       'Análise Forense',
     ],
     securityControls: [
-      'Zoning estrito com regras de Firewall de Menor Privilégio',
-      'Prevenção de Intrusão (IPS) ativa com atualização de assinaturas',
-      'Log de auditoria imutável e proteção contra força bruta',
+      'Zoning estrito com regras de Firewall baseadas no princípio do menor privilégio',
+      'Mecanismos de Prevenção de Intrusão (IPS) ativos com assinaturas atualizadas',
+      'Trilhas de auditoria protegidas contra modificações e bloqueio de tentativas de força bruta',
     ],
     testing: [
-      'Simulação de Pentest interno (Black box / Gray box)',
-      'Verificação de descarte de pacotes maliciosos pelo IPS',
-      'Validação de integridade de dumps de memória no laboratório forense',
+      'Simulação de varreduras em ambiente laboratorial de testes',
+      'Verificação prática de regras de descarte e filtragem de pacotes pelo firewall',
+      'Validação de integridade de logs e evidências durante exercícios práticos',
     ],
     outcomes: [
-      { label: 'Bloqueio de Tentativas de Intrusão', value: '100% no Perímetro', verified: true },
-      { label: 'Tempo de Detecção de Porta Aberta', value: '< 30 segundos', verified: true },
+      {
+        label: 'Controle de Perímetro',
+        value: 'Filtragem rigorosa de acessos externos e isolamento efetivo entre zonas de rede',
+        verified: false,
+      },
+      {
+        label: 'Visibilidade Operacional',
+        value: 'Detecção rápida de portas desnecessárias e tráfego divergente do padrão de homologação',
+        verified: false,
+      },
     ],
     links: [{ label: 'Perfil de Segurança no GitHub', url: 'https://github.com/5734Elias' }],
   },
@@ -135,32 +159,40 @@ const rawProjects: ProjectCase[] = [
     slug: 'aws-cloud-data-pipeline',
     title: 'Pipeline de Dados & Analytics em Nuvem AWS & Python',
     summary:
-      'Pipeline resiliente para ingestão, transformação e carga de dados analíticos com banco de dados MySQL/PostgreSQL e Python para Data Science.',
+      'Pipeline resiliente para ingestão, transformação e carga de dados analíticos com banco de dados relacional e Python para Data Science.',
     context:
-      'Desenvolvido com base no conhecimento de AWS Cloud Practitioner e Banco de Dados para Data Science do SENAI.',
+      'Desenvolvido com base no aprendizado de computação em nuvem AWS e banco de dados para Data Science no SENAI.',
     problem:
-      'Inexistência de visibilidade em tempo real para tomada de decisão a partir de fontes de dados dispersas.',
+      'Dispersão de bases operacionais dificultando a consolidação de relatórios e tomada de decisões estratégicas.',
     solution:
-      'Arquitetura Serverless/IaaS na AWS com instâncias EC2/RDS, scripts Python para ETL automatizado com Pandas, e dashboards analíticos.',
+      'Arquitetura em nuvem utilizando instâncias de banco de dados na AWS, scripts em Python com Pandas para extração e higienização, e rotinas estruturadas de consolidação.',
     architecture: [
-      'Ingestão & Carga: Python ETL Scripts',
-      'Banco de Dados: Amazon RDS (MySQL / PostgreSQL)',
-      'Processamento: Pandas, NumPy, SQL Analítico',
-      'Visualização: Dashboards Interativos com Métricas Verificadas',
+      'Ingestão & Extração: Scripts de automação em Python',
+      'Armazenamento Relacional: AWS RDS / Instâncias MySQL e PostgreSQL',
+      'Transformação: Pandas, NumPy e consultas analíticas otimizadas em SQL',
+      'Consolidação: Estruturas agregadas preparadas para relatórios e análises gerenciais',
     ],
     technologies: ['AWS Cloud', 'Python', 'MySQL', 'PostgreSQL', 'Pandas', 'Data Science'],
     securityControls: [
-      'IAM Roles com controle de acesso refinado (Princípio de menor privilégio)',
-      'Criptografia em repouso (KMS) e em trânsito (TLS 1.3)',
-      'VPC com Subnets Privadas para os Bancos de Dados',
+      'Políticas de IAM refinadas com concessão estrita de menor privilégio',
+      'Criptografia de dados em repouso e trânsito protegido com TLS',
+      'Bancos de dados alocados em sub-redes privadas sem exposição pública direta',
     ],
     testing: [
-      'Testes de carga e stress no RDS',
-      'Verificação automatizada de integridade e esquema de dados',
+      'Testes de integridade de esquema e consistência relacional pós-carga',
+      'Validação de idempotência nos scripts de transformação para evitar duplicidades',
     ],
     outcomes: [
-      { label: 'Disponibilidade do Banco de Dados', value: '99.9%', verified: true },
-      { label: 'Tempo de Processamento de Lotes', value: 'Redução de 60%', verified: true },
+      {
+        label: 'Resiliência e Continuidade',
+        value: 'Rotinas automatizadas de backup e isolamento em ambiente de nuvem seguro',
+        verified: false,
+      },
+      {
+        label: 'Eficiência de Processamento',
+        value: 'Pipelines automatizados que substituem tarefas manuais repetitivas de extração',
+        verified: false,
+      },
     ],
     links: [{ label: 'Projetos de Dados no GitHub', url: 'https://github.com/5734Elias' }],
   },

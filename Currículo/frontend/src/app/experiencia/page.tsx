@@ -26,7 +26,7 @@ export default function ExperienciaPage() {
         <SectionHeader
           badge="Linha do Tempo Profissional"
           title="Trajetória de Atuação e Experiência"
-          description="Histórico profissional em ordem cronológica inversa, com responsabilidades estruturadas em Ação + Contexto + Efeito e métricas qualitativas/quantitativas verificadas."
+          description="Histórico profissional em ordem cronológica inversa, com responsabilidades estruturadas em Ação + Contexto + Efeito e destaques técnicos qualitativos."
         />
 
         {/* Timeline Container */}
@@ -55,6 +55,12 @@ export default function ExperienciaPage() {
 
                   <CardTitle className="text-xl text-[#dce4e4]">{exp.role}</CardTitle>
                   <p className="text-sm font-semibold text-[#c0c1ff] mt-0.5">{exp.company}</p>
+                  {exp.overlapNote && (
+                    <p className="text-xs text-[#00f2ff]/80 font-mono mt-1.5 flex items-center gap-1.5 bg-[#00f2ff]/5 border border-[#00f2ff]/20 px-2.5 py-1 rounded-[0.25rem]">
+                      <span>ℹ</span>
+                      <span>{exp.overlapNote}</span>
+                    </p>
+                  )}
                 </CardHeader>
 
                 <CardContent className="space-y-6 pt-4 border-t border-[#3a494b]/60">
@@ -87,18 +93,18 @@ export default function ExperienciaPage() {
                     </div>
                   </div>
 
-                  {/* Métricas e Resultados Verificados */}
+                  {/* Destaques e Entregas Técnicas */}
                   {exp.outcomes && exp.outcomes.length > 0 && (
-                    <div className="p-4 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] space-y-2">
+                    <div className="p-4 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] space-y-3">
                       <h4 className="text-xs font-mono uppercase tracking-wider text-[#00f2ff] flex items-center gap-1.5">
                         <CheckCircle className="w-4 h-4" />
-                        Resultados Verificados:
+                        Destaques e Entregas Técnicas:
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 gap-2.5">
                         {exp.outcomes.map((outcome) => (
-                          <div key={outcome.label} className="flex items-center justify-between text-xs font-mono">
-                            <span className="text-[#b9cacb]">{outcome.label}:</span>
-                            <span className="text-[#00f2ff] font-bold">{outcome.value}</span>
+                          <div key={outcome.label} className="text-xs space-y-0.5">
+                            <span className="text-[#00f2ff] font-mono font-semibold block">{outcome.label}:</span>
+                            <p className="text-[#b9cacb] leading-relaxed">{outcome.value}</p>
                           </div>
                         ))}
                       </div>

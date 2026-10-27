@@ -297,7 +297,7 @@ export default function FormacaoPage() {
                     <CardContent className="pt-2 space-y-3">
                       <div className="flex items-center justify-between text-[11px] font-mono text-[#849495]">
                         <span>Tipo: {course.credentialType}</span>
-                        <span>{course.issuedAt || 'Auditado'}</span>
+                        <span>{course.issuedAt || 'Concluído'}</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {course.skills.slice(0, 5).map((skill) => (
@@ -458,7 +458,7 @@ export default function FormacaoPage() {
                 </div>
                 {activeCourse.sourceFile && (
                   <div className="col-span-2 border-t border-[#3a494b] pt-2">
-                    <span className="text-[#849495] block">ARQUIVO DE ORIGEM AUDITADO:</span>
+                    <span className="text-[#849495] block">REGISTRO INSTITUCIONAL / ARQUIVO:</span>
                     <span className="text-[#b9cacb] font-mono text-[10px]">{activeCourse.sourceFile}</span>
                   </div>
                 )}
@@ -466,7 +466,7 @@ export default function FormacaoPage() {
 
               <div className="space-y-2">
                 <span className="text-xs font-mono text-[#00f2ff] uppercase tracking-wider block">
-                  Habilidades & Tópicos Comprovados:
+                  Habilidades & Tópicos do Programa:
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {activeCourse.skills.map((skill) => (

@@ -206,7 +206,7 @@ export default function DesignSystemCatalogPage() {
                 </p>
               </CardContent>
               <CardFooter>
-                <span className="text-xs font-mono text-[#00f2ff]">STATUS: VERIFICADO</span>
+                <span className="text-xs font-mono text-[#00f2ff]">STATUS: ATIVO</span>
                 <Button size="sm" variant="outline">
                   Ver Detalhes
                 </Button>

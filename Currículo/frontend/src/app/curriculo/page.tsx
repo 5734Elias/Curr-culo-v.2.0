@@ -25,7 +25,7 @@ export default function CurriculoPage() {
         {/* Top Header & Print CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#3a494b]/80 pb-6 print:hidden">
           <SectionHeader
-            badge="Versão Profissional Auditada"
+            badge="Versão Profissional Completa"
             title="Currículo Vitae - Elias Ribeiro dos Reis"
             description="Visão limpa para leitura profissional com opção de impressão e download em PDF."
             className="mb-0"
@@ -89,12 +89,17 @@ export default function CurriculoPage() {
             </h2>
             <div className="space-y-6">
               {EXPERIENCES.map((exp) => (
-                <div key={exp.id} className="space-y-2">
+                <div key={exp.id} className="space-y-2 print:break-inside-avoid">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs sm:text-sm">
                     <span className="font-bold text-[#dce4e4] print:text-black">{exp.role}</span>
                     <span className="font-mono text-[#00f2ff] print:text-black">{exp.period}</span>
                   </div>
                   <p className="text-xs font-semibold text-[#c0c1ff] print:text-black">{exp.company}</p>
+                  {exp.overlapNote && (
+                    <p className="text-[11px] text-[#849495] print:text-gray-600 italic">
+                      Obs: {exp.overlapNote}
+                    </p>
+                  )}
                   <ul className="space-y-1 text-xs text-[#b9cacb] print:text-black list-disc list-inside">
                     {exp.responsibilities.map((resp, i) => (
                       <li key={i}>{resp}</li>

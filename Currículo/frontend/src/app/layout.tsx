@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: `${PROFILE.name} | ${PROFILE.role}`,
-    description: `Portfólio interativo com projetos verificados, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
+    description: `Portfólio interativo com projetos práticos, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
     url: 'https://eliasreis.dev',
     siteName: `Portfólio ${PROFILE.name}`,
     locale: 'pt_BR',
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: `${PROFILE.name} | ${PROFILE.role}`,
-    description: `Portfólio interativo com projetos verificados, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
+    description: `Portfólio interativo com projetos práticos, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
   },
   robots: {
     index: true,

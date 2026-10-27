@@ -124,7 +124,7 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
             </div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[0.25rem] bg-[#00f2ff]/10 border border-[#00f2ff]/30 text-[11px] font-mono text-[#00f2ff]">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Estudo de Caso Auditado</span>
+              <span>Estudo de Caso Prático</span>
             </div>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#dce4e4] tracking-tight">
@@ -234,15 +234,14 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
               <CardHeader>
                 <CardTitle className="text-base text-[#00f2ff] flex items-center gap-2">
                   <CheckCircle className="w-5 h-5" />
-                  Métricas de Resultado
+                  Destaques Técnicos da Solução
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {project.outcomes.map((outcome) => (
-                  <div key={outcome.label} className="p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] space-y-1">
-                    <span className="text-xs text-[#b9cacb] block font-mono">{outcome.label}</span>
-                    <span className="text-xl font-bold text-[#00f2ff] font-mono">{outcome.value}</span>
-                    <span className="text-[10px] text-[#849495] block font-mono">STATUS: VERIFICADO</span>
+                  <div key={outcome.label} className="p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] space-y-2">
+                    <span className="text-xs font-semibold text-[#00f2ff] block font-mono">{outcome.label}</span>
+                    <p className="text-xs text-[#dce4e4] leading-relaxed">{outcome.value}</p>
                   </div>
                 ))}
               </CardContent>

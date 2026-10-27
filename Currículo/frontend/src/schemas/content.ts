@@ -110,6 +110,7 @@ export const ExperienceSchema = z.object({
   endDate: z.string().optional(),
   isCurrent: z.boolean().optional(),
   location: z.string().optional(),
+  overlapNote: z.string().optional(),
   responsibilities: z.array(z.string()),
   technologies: z.array(z.string()),
   outcomes: z.array(OutcomeSchema),
