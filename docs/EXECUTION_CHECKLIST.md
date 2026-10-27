@@ -58,8 +58,12 @@
 ---
 
 ## Fase 4: Arquitetura e Refatoração
-- [ ] Organização modular das pastas e separação de responsabilidades
-- [ ] Eliminação de duplicações de dados biográficos
+- [x] Criação de camada centralizada de tipos em `src/types/index.ts`
+- [x] Tipagem explícita com `ProfileData` na fonte única `profile.ts`
+- [x] Criação de suíte de testes de integridade cruzada de dados (`validate-data-consistency.mjs`)
+- [x] Eliminação de duplicações de URLs, redes sociais e metadados
+- [x] Validação automatizada de slugs canônicos de projetos e consistência com rotas estáticas
+- [x] Validação de lint, typecheck, suíte tripla de testes e build de produção
 
 ---
 

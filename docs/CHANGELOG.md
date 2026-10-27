@@ -3,6 +3,14 @@
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [3.0.0-phase4] - 2026-10-27
+
+### Aprimorado
+- **Módulo Central de Tipos:** Criado `src/types/index.ts` desacoplando as definições de tipos (`ProfileData`, `ProjectCase`, `Course`, `Experience`) de schemas de validação de runtime.
+- **Auditoria Cruzada de Dados (Single Source of Truth):** Desenvolvido script de teste `validate-data-consistency.mjs` que valida sincronização entre `PROFILE`, `PROJECTS`, `EXPERIENCES` e `COURSES`.
+- **Slugs Canônicos:** Validado formato kebab-case e unicidade de todos os identificadores de projetos.
+- **Tipagem Estrita:** Tipado `PROFILE: ProfileData` explicitamente.
+
 ## [3.0.0-phase3] - 2026-10-27
 
 ### Aprimorado

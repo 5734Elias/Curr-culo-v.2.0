@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs"
+    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs && npx tsx scripts/validate-data-consistency.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

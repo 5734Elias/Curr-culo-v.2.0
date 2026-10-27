@@ -1,4 +1,6 @@
-export const PROFILE = {
+import { ProfileData } from '@/types';
+
+export const PROFILE: ProfileData = {
   name: 'Elias Ribeiro Dos Reis',
   role: 'Analista de Sistemas | Full Stack Developer | Java • Spring Boot • React',
   headline: 'Analista de Sistemas | Full Stack Developer | Java • Spring Boot • React | APIs REST • SQL • Docker | Segurança & Cloud',
