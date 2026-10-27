@@ -1,0 +1,51 @@
+name: CI - Portfólio Profissional v3.0
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    name: Lint, Typecheck, Test & Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Currículo/frontend
+
+    steps:
+      - name: 1. Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Currículo/frontend/package-lock.json
+
+      - name: 3. Instalar Dependências
+        run: npm ci
+
+      - name: 4. Verificação de Lint (ESLint)
+        run: npm run lint
+
+      - name: 5. Verificação Estática de Tipagem (TypeScript)
+        run: npm run typecheck
+
+      - name: 6. Executar Suíte de Testes Automatizados (QA)
+        run: npm run test
+
+      - name: 7. Compilação de Produção (Next.js Build)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

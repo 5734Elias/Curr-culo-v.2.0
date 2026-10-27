@@ -38,6 +38,8 @@ export default function SobrePage() {
                     src="/images/Eu.jpg"
                     alt="Foto de Elias Ribeiro dos Reis"
                     fill
+                    sizes="144px"
+                    priority
                     className="object-cover"
                   />
                 </div>

@@ -64,3 +64,4 @@ for (const req of requiredRoutes) {
 console.log('PASS: Todas as rotas prioritárias de navegação estão mapeadas no sitemap.');
 
 console.log('--- AUDITORIA DE SEO TÉCNICO APROVADA COM 100% DE SUCESSO! ---');
+

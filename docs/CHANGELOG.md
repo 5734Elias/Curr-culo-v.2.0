@@ -3,6 +3,13 @@
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [3.0.0-phase6-8] - 2026-10-27
+
+### Adicionado e Aprimorado
+- **Desempenho & Core Web Vitals:** Otimizados avatares com atributos `sizes` e `priority` em Next.js Image, eliminando risco de CLS. Otimizada renderização do Canvas com pausa automática quando a aba está em segundo plano.
+- **Suíte Completa de QA (5 Frentes de Testes):** Consolidado comando `npm run test` cobrindo dados de cursos, segurança e LGPD, consistência de fonte única, auditoria de SEO técnico e validação de acessibilidade WCAG 2.2 AA.
+- **Pipeline CI/CD (GitHub Actions):** Criado `.github/workflows/ci.yml` configurado para executar validação automatizada em push e pull requests (Checkout, Node 20, Cache, Lint, Typecheck, Test, Build).
+
 ## [3.0.0-phase5] - 2026-10-27
 
 ### Aprimorado

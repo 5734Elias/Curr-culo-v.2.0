@@ -78,18 +78,22 @@
 ---
 
 ## Fase 6: Desempenho e Core Web Vitals
-- [ ] Medição e otimização de métricas LCP, CLS e INP
-- [ ] Lazy loading inteligente de efeitos pesados
-
----
+- [x] Otimização de imagens com atributos `sizes` e `priority` em avatares do Hero e Sobre
+- [x] Otimização de Canvas de fundo com limitação estrita de 30 FPS e pausa em abas inativas
+- [x] Prevenção de CLS (Cumulative Layout Shift) com dimensões reservadas
+- [x] Validação de geração estática de 100% das páginas públicas (19 rotas)
 
 ## Fase 7: Testes Automatizados e QA
-- [ ] Suíte de testes unitários para schemas Zod e formatações
-- [ ] Testes de integração da rota de API de contato
-
----
+- [x] Suíte quíntupla de testes automatizados integrada em `npm run test`:
+  - 1. `validate-courses.mjs`: Integridade estática de 65 cursos e 2.164,5h
+  - 2. `test-security-and-contact.mjs`: Schemas, Rate limit, Anonimização IP LGPD e ausência de falso sucesso
+  - 3. `validate-data-consistency.mjs`: Integridade cruzada Single Source of Truth
+  - 4. `test-seo-and-routes.mjs`: Robots.txt, Sitemap.xml e URLs canônicas
+  - 5. `test-ui-accessibility.mjs`: WCAG 2.2 AA, botões com min-h 44px, ARIA e reduced-motion
+- [x] Execução e aprovação com código 0 em todas as suítes
 
 ## Fase 8: CI/CD e Documentação
-- [ ] Pipeline do GitHub Actions (`.github/workflows/ci.yml`)
-- [ ] Criação de `.env.example`
-- [ ] Atualização do `README.md` com arquitetura e instruções
+- [x] Criação do pipeline de integração contínua do GitHub Actions (`.github/workflows/ci.yml`)
+- [x] Automação dos passos: Checkout -> Setup Node.js -> npm ci -> Lint -> Typecheck -> Test -> Build
+- [x] Aplicação do princípio de menor privilégio (`permissions: contents: read`)
+- [x] Sincronização do checklist de execução e histórico no CHANGELOG.md

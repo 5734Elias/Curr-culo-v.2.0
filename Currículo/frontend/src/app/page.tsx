@@ -82,6 +82,7 @@ export default function HomePage() {
                           src="/images/Eu.jpg"
                           alt="Foto de Elias Ribeiro Dos Reis"
                           fill
+                          sizes="80px"
                           className="object-cover"
                           priority
                         />
