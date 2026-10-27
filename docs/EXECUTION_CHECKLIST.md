@@ -92,8 +92,13 @@
   - 5. `test-ui-accessibility.mjs`: WCAG 2.2 AA, botões com min-h 44px, ARIA e reduced-motion
 - [x] Execução e aprovação com código 0 em todas as suítes
 
-## Fase 8: CI/CD e Documentação
-- [x] Criação do pipeline de integração contínua do GitHub Actions (`.github/workflows/ci.yml`)
-- [x] Automação dos passos: Checkout -> Setup Node.js -> npm ci -> Lint -> Typecheck -> Test -> Build
-- [x] Aplicação do princípio de menor privilégio (`permissions: contents: read`)
-- [x] Sincronização do checklist de execução e histórico no CHANGELOG.md
+## Fase 9: Documentação Completa & Governança
+- [x] Criação de `README.md` profissional na raiz do repositório com badges e visão de engenharia
+- [x] Criação de `docs/ARCHITECTURE.md` detalhando camadas, fluxo de dados e princípios
+- [x] Criação de `docs/DEVELOPMENT.md` com guia de desenvolvimento e comandos
+- [x] Criação de `docs/SECURITY.md` com políticas de segurança HTTP e conformidade LGPD
+- [x] Criação de `docs/TESTING.md` com documentação da suíte quíntupla de testes
+- [x] Criação de `docs/DEPLOYMENT.md` com guia para Vercel e rollback
+- [x] Criação de `docs/SEO.md` e `docs/ACCESSIBILITY.md`
+- [x] Criação de registros de decisões de arquitetura em `docs/adr/` (ADR 001 e ADR 002)
+- [x] Atualização de `Currículo/frontend/README.md` específico para a aplicação web

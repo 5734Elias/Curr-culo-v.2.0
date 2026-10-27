@@ -3,6 +3,20 @@
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [3.0.0-phase9] - 2026-10-27
+
+### Adicionado
+- **Documentação de Engenharia de Software Completa:**
+  - `README.md` profissional na raiz com badges de CI, stack e visão geral.
+  - `docs/ARCHITECTURE.md` (Camadas, padrões e fluxos de dados).
+  - `docs/DEVELOPMENT.md` (Convenções de código e scripts).
+  - `docs/SECURITY.md` (Políticas de segurança HTTP e conformidade LGPD).
+  - `docs/TESTING.md` (Guia detalhado da suíte quíntupla de testes).
+  - `docs/DEPLOYMENT.md` (Procedimentos de publicação na Vercel e rollback).
+  - `docs/SEO.md` (Estratégia técnica de indexabilidade e JSON-LD).
+  - `docs/ACCESSIBILITY.md` (Mapeamento de critérios WCAG 2.2 AA).
+  - `docs/adr/001-webpack-build-stability.md` e `docs/adr/002-resend-contact-service-abstraction.md` (Decisões arquiteturais registradas).
+
 ## [3.0.0-phase6-8] - 2026-10-27
 
 ### Adicionado e Aprimorado

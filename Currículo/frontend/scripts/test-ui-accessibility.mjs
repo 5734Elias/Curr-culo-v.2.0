@@ -65,3 +65,4 @@ assert.ok(
 console.log('PASS: Skip link presente e funcional.');
 
 console.log('--- AUDITORIA DE ACESSIBILIDADE E UI APROVADA COM SUCESSO! ---');
+
