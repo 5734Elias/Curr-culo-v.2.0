@@ -92,3 +92,4 @@ export function formatExperiencePeriod(
   const endFormatted = endDateStr ? formatMonthYear(endDateStr) : '';
   return `${startFormatted} – ${endFormatted} (${label})`;
 }
+
