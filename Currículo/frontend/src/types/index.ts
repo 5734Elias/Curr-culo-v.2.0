@@ -34,3 +34,4 @@ export interface ProfileData {
   linkedin: string;
   availability: string;
 }
+

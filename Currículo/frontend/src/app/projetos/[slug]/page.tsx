@@ -45,8 +45,55 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
     notFound();
   }
 
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Início',
+        item: 'https://eliasreis.dev',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Projetos',
+        item: 'https://eliasreis.dev/projetos',
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: project.title,
+        item: `https://eliasreis.dev/projetos/${project.slug}`,
+      },
+    ],
+  };
+
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: project.title,
+    description: project.summary,
+    author: {
+      '@type': 'Person',
+      name: PROFILE.name,
+      url: 'https://eliasreis.dev',
+    },
+    inLanguage: 'pt-BR',
+    keywords: project.technologies.join(', '),
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0d1515] text-[#dce4e4]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
       <Navbar />
 
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">

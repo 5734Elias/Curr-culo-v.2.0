@@ -68,9 +68,12 @@
 ---
 
 ## Fase 5: SEO Técnico Avançado
-- [ ] Enriquecimento de JSON-LD (`Person`, `WebSite`, `BreadcrumbList`)
-- [ ] Validação de sitemap.xml e robots.txt
-- [ ] Meta tags OpenGraph e Twitter completas
+- [x] Enriquecimento de JSON-LD (`Person`, `WebSite`, `BreadcrumbList`, `TechArticle`)
+- [x] Otimização de tags OpenGraph e Twitter Cards (`summary_large_image`)
+- [x] Validação e correção do sitemap.xml com data real estável (sem fake fresh dates)
+- [x] Validação do robots.txt com bloqueio seguro de `/api/` e link do sitemap canônico
+- [x] Criação de suíte de testes automatizados de SEO (`test-seo-and-routes.mjs`)
+- [x] Validação de lint, typecheck, suíte quádrupla de testes e build de produção
 
 ---
 

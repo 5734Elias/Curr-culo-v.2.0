@@ -72,3 +72,4 @@ for (const course of COURSES) {
 console.log(`PASS: ${COURSES.length} cursos auditados totalizando ${totalHours}h verificadas.`);
 
 console.log('--- CONSISTÊNCIA DE DADOS APROVADA: ZERO DIVERGÊNCIAS DETECTADAS! ---');
+

@@ -3,6 +3,14 @@
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [3.0.0-phase5] - 2026-10-27
+
+### Aprimorado
+- **Dados Estruturados Avançados (JSON-LD):** Adicionado schema `@graph` integrando `Person` e `WebSite` no layout global, além de `BreadcrumbList` e `TechArticle` nas páginas de estudo de caso de projetos.
+- **Sitemap Canônico Estável:** Substituídas as datas dinâmicas falsas no `sitemap.ts` por data fixa e real da última auditoria, com prioridades semânticas (1.0 na Home, 0.8 nas páginas principais e 0.7 nos projetos).
+- **Cards de Mídias Sociais:** Configuradas tags completas de OpenGraph e Twitter Cards (`summary_large_image`).
+- **Suíte de Testes de SEO:** Adicionado script automatizado `test-seo-and-routes.mjs` validando indexabilidade, rotas críticas e segurança do robots.txt.
+
 ## [3.0.0-phase4] - 2026-10-27
 
 ### Aprimorado

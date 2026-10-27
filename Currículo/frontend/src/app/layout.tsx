@@ -45,37 +45,72 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${PROFILE.name} | ${PROFILE.role}`,
     description: `Portfólio interativo com projetos verificados, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
+    url: 'https://eliasreis.dev',
+    siteName: `Portfólio ${PROFILE.name}`,
     locale: 'pt_BR',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${PROFILE.name} | ${PROFILE.role}`,
+    description: `Portfólio interativo com projetos verificados, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'Person',
-  name: PROFILE.name,
-  jobTitle: PROFILE.role,
-  url: 'https://eliasreis.dev',
-  sameAs: [
-    PROFILE.github,
-    PROFILE.linkedin,
-  ],
-  alumniOf: {
-    '@type': 'EducationalOrganization',
-    name: 'SENAI Suíço-Brasileiro Paulo Ernesto Tolle',
-  },
-  knowsAbout: [
-    'Software Engineering',
-    'Java',
-    'Spring Boot',
-    'React',
-    'TypeScript',
-    'Python',
-    'REST APIs',
-    'Docker',
-    'Cloud Computing (AWS/Azure)',
-    'Cybersecurity',
-    'Generative AI',
+  '@graph': [
+    {
+      '@type': 'Person',
+      '@id': 'https://eliasreis.dev/#person',
+      name: PROFILE.name,
+      jobTitle: PROFILE.role,
+      description: PROFILE.headline,
+      url: 'https://eliasreis.dev',
+      sameAs: [
+        PROFILE.github,
+        PROFILE.linkedin,
+      ],
+      alumniOf: {
+        '@type': 'EducationalOrganization',
+        name: 'SENAI Suíço-Brasileiro Paulo Ernesto Tolle',
+      },
+      knowsAbout: [
+        'Software Engineering',
+        'Java',
+        'Spring Boot',
+        'React',
+        'TypeScript',
+        'Python',
+        'REST APIs',
+        'Docker',
+        'Cloud Computing (AWS/Azure)',
+        'Cybersecurity',
+        'Generative AI',
+      ],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://eliasreis.dev/#website',
+      url: 'https://eliasreis.dev',
+      name: `Portfólio de Engenharia de Software - ${PROFILE.name}`,
+      description: PROFILE.headline,
+      publisher: {
+        '@id': 'https://eliasreis.dev/#person',
+      },
+      inLanguage: 'pt-BR',
+    },
   ],
 };
 
