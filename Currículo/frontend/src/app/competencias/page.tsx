@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -6,7 +7,14 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { PROFILE } from '@/data/profile';
 import { Code, Cpu, Shield, Database, Server, CheckCircle, ArrowRight } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: `Competências Técnicas & Domínios | ${PROFILE.name}`,
+  description:
+    'Matriz de competências técnicas estruturadas em evidências factuais: Desenvolvimento Java/Python/TS, IA Generativa, Cibersegurança Fortinet e Nuvem AWS/Azure.',
+};
 
 const SKILL_GROUPS = [
   {

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -7,7 +8,14 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { EXPERIENCES } from '@/data/experiences';
+import { PROFILE } from '@/data/profile';
 import { Briefcase, Calendar, MapPin, CheckCircle, ArrowRight, Shield } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: `Experiência Profissional | ${PROFILE.name}`,
+  description:
+    'Histórico de atuação profissional com responsabilidades estruturadas em Ação, Contexto e Efeito, abrangendo desenvolvimento de software e infraestrutura.',
+};
 
 export default function ExperienciaPage() {
   return (

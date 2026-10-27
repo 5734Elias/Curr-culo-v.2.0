@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
@@ -8,6 +9,12 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { PROFILE } from '@/data/profile';
 import { Shield, Code, Award, ArrowRight, CheckCircle, UserCheck } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: `Sobre & Visão de Engenharia | ${PROFILE.name}`,
+  description:
+    'Conheça a trajetória técnica, princípios de engenharia e proposta de valor profissional de Elias Ribeiro dos Reis.',
+};
 
 export default function SobrePage() {
   return (

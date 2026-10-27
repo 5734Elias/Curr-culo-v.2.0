@@ -47,9 +47,13 @@
 ---
 
 ## Fase 3: Evolução do Conteúdo do Portfólio
-- [ ] Enriquecer detalhes dos projetos com arquitetura, desafios e soluções reais
-- [ ] Organizar competências em domínios claros (sem porcentagens artificiais)
-- [ ] Otimização para impressão do currículo em `/curriculo`
+- [x] Enriquecer detalhes dos projetos com arquitetura, desafios e métricas reais verificáveis
+- [x] Adicionar metadados dinâmicos (`generateMetadata`) para cada estudo de caso em `/projetos/[slug]`
+- [x] Implementar Breadcrumbs semânticos com navegação acessível e status auditado
+- [x] Adicionar metadados específicos para `/competencias`, `/experiencia` e `/sobre`
+- [x] Preservar dados auditados de formação (65 cursos e 2.164,5h) com busca e filtros
+- [x] Validação e teste de impressão para PDF do currículo em `/curriculo`
+- [x] Validação de lint, typecheck, testes e build de produção após evolução do conteúdo
 
 ---
 

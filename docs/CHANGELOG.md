@@ -3,6 +3,14 @@
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [3.0.0-phase3] - 2026-10-27
+
+### Aprimorado
+- **SEO & Metadados Dinâmicos de Projetos:** Implementada a função `generateMetadata` nas rotas dinâmicas `/projetos/[slug]`, gerando títulos, descrições e OpenGraph específicos para cada estudo de caso.
+- **Navegação Acessível (Breadcrumbs):** Inserida trilha de navegação breadcrumbs com `<nav aria-label="Breadcrumb">` em cada projeto, com indicação de página atual (`aria-current="page"`).
+- **Metadados Semânticos em Páginas Estáticas:** Adicionados metadados específicos para `/competencias`, `/experiencia` e `/sobre`, otimizando a indexabilidade e compartilhamento em redes.
+- **Validação de Conteúdo:** Garantida a preservação estrita de dados factuais (sem certificações ou cargos inventados) em consonância com a regra de integridade.
+
 ## [3.0.0-phase2] - 2026-10-27
 
 ### Adicionado e Aprimorado

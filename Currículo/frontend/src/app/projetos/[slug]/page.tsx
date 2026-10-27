@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
@@ -7,7 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { PROJECTS } from '@/data/projects';
-import { ArrowLeft, CheckCircle, ExternalLink, Server, Lock, TestTube } from 'lucide-react';
+import { PROFILE } from '@/data/profile';
+import { CheckCircle, ExternalLink, Server, Lock, TestTube, ChevronRight, ShieldCheck } from 'lucide-react';
 
 interface ProjectSlugPageProps {
   params: Promise<{ slug: string }>;
@@ -17,6 +19,22 @@ export async function generateStaticParams() {
   return PROJECTS.map((p) => ({
     slug: p.slug,
   }));
+}
+
+export async function generateMetadata({ params }: ProjectSlugPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const project = PROJECTS.find((p) => p.slug === slug);
+  if (!project) return { title: 'Projeto Não Encontrado' };
+
+  return {
+    title: `${project.title} | ${PROFILE.name}`,
+    description: project.summary,
+    openGraph: {
+      title: `${project.title} | Elias Ribeiro dos Reis`,
+      description: project.summary,
+      type: 'article',
+    },
+  };
 }
 
 export default async function ProjectDetailPage({ params }: ProjectSlugPageProps) {
@@ -31,24 +49,36 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
     <div className="min-h-screen flex flex-col bg-[#0d1515] text-[#dce4e4]">
       <Navbar />
 
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
-        {/* Top Back Link */}
-        <div>
-          <Link href="/projetos">
-            <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="w-4 h-4" />}>
-              Voltar para Lista de Projetos
-            </Button>
+      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+        {/* Breadcrumb de Navegação Acessível */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-mono text-[#849495]">
+          <Link href="/" className="hover:text-[#00f2ff] transition-colors">
+            Início
           </Link>
-        </div>
+          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+          <Link href="/projetos" className="hover:text-[#00f2ff] transition-colors">
+            Projetos
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+          <span className="text-[#00f2ff] truncate max-w-xs sm:max-w-md font-semibold" aria-current="page">
+            {project.title}
+          </span>
+        </nav>
 
         {/* Header do Estudo de Caso */}
         <div className="space-y-4 border-b border-[#3a494b]/80 pb-8">
-          <div className="flex flex-wrap gap-2">
-            {project.technologies.map((tech) => (
-              <Badge key={tech} variant="cyber">
-                {tech}
-              </Badge>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              {project.technologies.map((tech) => (
+                <Badge key={tech} variant="cyber">
+                  {tech}
+                </Badge>
+              ))}
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[0.25rem] bg-[#00f2ff]/10 border border-[#00f2ff]/30 text-[11px] font-mono text-[#00f2ff]">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Estudo de Caso Auditado</span>
+            </div>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#dce4e4] tracking-tight">
             {project.title}
