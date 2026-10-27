@@ -1,0 +1,30 @@
+# Changelog - Portfólio Profissional
+
+Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
+O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
+
+## [3.0.0-phase1] - 2026-10-27
+
+### Corrigido e Aprimorado
+- **Falso Sucesso de Contato Eliminado:** Criada a camada de serviço `contactService.ts` com suporte a envio real por e-mail e tratamento transparente de status.
+- **Proteção e Privacidade (LGPD):** Implementado `rateLimit.ts` com sanitização de cabeçalhos de proxy e anonimização criptográfica de IP com SHA-256 + salt antes do armazenamento.
+- **Headers de Segurança HTTP:** Configurados CSP, HSTS, X-Content-Type-Options, X-Frame-Options (DENY), Referrer-Policy e Permissions-Policy em `next.config.ts`.
+- **Single Source of Truth:** Centralizados os dados biográficos e links sociais (LinkedIn) em `src/data/profile.ts`, consumidos diretamente em `layout.tsx`.
+- **Acessibilidade:** Adicionado skip link para navegação rápida por teclado.
+- **Estabilidade de Build:** Adicionado `--webpack` no comando de build para contornar falha do Turbopack no Windows.
+- **Testes Automatizados:** Adicionada suíte de testes `test-security-and-contact.mjs` validando schemas, rate limiter e serviços.
+
+## [3.0.0-baseline] - 2026-10-27
+
+### Adicionado
+- Auditoria inicial de baseline (`docs/AUDIT_BASELINE.md`).
+- Documentação da arquitetura corrente (`docs/ARCHITECTURE_CURRENT.md`).
+- Registro de riscos técnicos e vulnerabilidades (`docs/RISK_REGISTER.md`).
+- Plano de implementação estruturado por fases (`docs/IMPLEMENTATION_PLAN.md`).
+- Checklist persistente de execução (`docs/EXECUTION_CHECKLIST.md`).
+
+### Identificado
+- Falha de falso sucesso na rota de API `/api/contact`.
+- Instabilidade do Turbopack com PostCSS/Tailwind v4 no Windows.
+- Ausência de headers de segurança HTTP em `next.config.ts`.
+- Inconsistência de URL do LinkedIn entre `layout.tsx` e `profile.ts`.

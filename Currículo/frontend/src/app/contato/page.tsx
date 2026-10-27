@@ -130,9 +130,26 @@ export default function ContatoPage() {
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                     {errorMessage && (
-                      <div className="p-4 rounded-[0.25rem] bg-[#ffb4ab]/10 border border-[#ffb4ab]/30 text-[#ffb4ab] text-xs flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>{errorMessage}</span>
+                      <div className="p-4 rounded-[0.25rem] bg-[#ffb4ab]/10 border border-[#ffb4ab]/30 text-[#ffb4ab] text-xs space-y-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span>{errorMessage}</span>
+                        </div>
+                        <div>
+                          <a
+                            href={`mailto:${PROFILE.email}?subject=${encodeURIComponent(
+                              formData.subject || 'Contato via Portfólio'
+                            )}&body=${encodeURIComponent(
+                              `Olá Elias,\n\nMeu nome: ${formData.name || ''}\nMeu e-mail: ${
+                                formData.email || ''
+                              }\n\nMensagem:\n${formData.message || ''}`
+                            )}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[0.25rem] bg-[#00f2ff]/20 hover:bg-[#00f2ff]/30 border border-[#00f2ff]/40 text-[#00f2ff] font-medium transition-colors"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Enviar diretamente pelo seu e-mail</span>
+                          </a>
+                        </div>
                       </div>
                     )}
 

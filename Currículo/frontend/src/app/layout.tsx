@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { CyberMatrixBackground } from '@/components/effects/CyberMatrixBackground';
+import { PROFILE } from '@/data/profile';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -16,32 +17,34 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Elias Ribeiro dos Reis | Analista de Sistemas & Desenvolvedor',
-  description:
-    'Portfólio profissional de Elias Ribeiro dos Reis - Analista de Sistemas e Desenvolvedor especializado em Software, Cloud AWS/Azure, IA Generativa (Google Antigravity & Microsoft AI Foundry) e Cibersegurança (Fortinet).',
+  title: `${PROFILE.name} | ${PROFILE.role}`,
+  description: `Portfólio profissional de ${PROFILE.name} - ${PROFILE.headline}`,
   keywords: [
-    'Elias Ribeiro dos Reis',
+    PROFILE.name,
     'Analista de Sistemas',
-    'Desenvolvedor Full-Stack',
-    'Python',
+    'Desenvolvedor Full Stack',
+    'Java',
+    'Spring Boot',
+    'React',
     'TypeScript',
+    'Python',
     'Next.js',
     'Cibersegurança',
-    'Fortinet',
     'AWS Cloud',
+    'Azure',
     'IA Generativa',
-    'Google Antigravity',
+    'APIs REST',
+    'Docker',
   ],
-  authors: [{ name: 'Elias Ribeiro dos Reis' }],
-  creator: 'Elias Ribeiro dos Reis',
+  authors: [{ name: PROFILE.name }],
+  creator: PROFILE.name,
   metadataBase: new URL('https://eliasreis.dev'),
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Elias Ribeiro dos Reis | Analista de Sistemas & Desenvolvedor',
-    description:
-      'Portfólio interativo com projetos verificados, certificações SENAI/Fortinet/AWS/Microsoft e trajetória técnica em sistemas, dados, cloud e IA.',
+    title: `${PROFILE.name} | ${PROFILE.role}`,
+    description: `Portfólio interativo com projetos verificados, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
     locale: 'pt_BR',
     type: 'website',
   },
@@ -50,12 +53,12 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Person',
-  name: 'Elias Ribeiro dos Reis',
-  jobTitle: 'Analista de Sistemas & Desenvolvedor Full-Stack',
+  name: PROFILE.name,
+  jobTitle: PROFILE.role,
   url: 'https://eliasreis.dev',
   sameAs: [
-    'https://github.com/5734Elias',
-    'https://www.linkedin.com/in/elias-ribeiro-dos-reis-b7791b291',
+    PROFILE.github,
+    PROFILE.linkedin,
   ],
   alumniOf: {
     '@type': 'EducationalOrganization',
@@ -63,14 +66,16 @@ const jsonLd = {
   },
   knowsAbout: [
     'Software Engineering',
-    'Generative AI',
-    'Google Antigravity',
-    'Microsoft AI Foundry',
-    'Cybersecurity',
-    'Fortinet',
-    'AWS Cloud',
-    'Python',
+    'Java',
+    'Spring Boot',
+    'React',
     'TypeScript',
+    'Python',
+    'REST APIs',
+    'Docker',
+    'Cloud Computing (AWS/Azure)',
+    'Cybersecurity',
+    'Generative AI',
   ],
 };
 
@@ -88,9 +93,17 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-[#0d1515] text-[#dce4e4] antialiased selection:bg-[#00f2ff] selection:text-[#00363a] relative min-h-screen">
-        {/* Single Global Instance of Cyber Matrix Background */}
+        {/* Skip to main content link para Acessibilidade WCAG 2.2 AA */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-[#00f2ff] focus:text-[#00363a] focus:font-bold focus:rounded focus:outline-none focus:ring-2 focus:ring-[#00f2ff]"
+        >
+          Pular para o conteúdo principal
+        </a>
+
+        {/* Global Instance of Cyber Matrix Background */}
         <CyberMatrixBackground variant="letter-glitch" opacity={0.1} />
-        {children}
+        <div id="main-content">{children}</div>
       </body>
     </html>
   );

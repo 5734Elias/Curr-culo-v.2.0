@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx scripts/validate-courses.mjs"
+    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
