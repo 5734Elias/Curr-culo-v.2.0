@@ -16,3 +16,4 @@ Implementou-se a camada de serviço `src/services/contactService.ts` com:
 ## Consequências
 - **Positivas:** Eliminação de 100% dos falsos sucessos; experiência do usuário profissional e honesta; facilidade de plugar novos provedores no futuro.
 - **Negativas:** Requer a configuração de uma chave de API para envios automáticos por formulário em produção.
+

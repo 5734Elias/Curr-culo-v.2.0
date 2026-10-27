@@ -150,3 +150,4 @@ Distribuído sob a licença MIT. Consulte `LICENSE` para mais detalhes.
 **Autor:** [Elias Ribeiro dos Reis](https://www.linkedin.com/in/elias-ribeiro-dos-reis-3b289a43)  
 **Portfólio Web:** [https://eliasreis.dev](https://eliasreis.dev)  
 **GitHub:** [@5734Elias](https://github.com/5734Elias)
+

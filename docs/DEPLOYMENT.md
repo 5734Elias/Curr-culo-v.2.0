@@ -50,3 +50,4 @@ Na eventualidade de qualquer incidente em produção:
 1. Acesse o painel da Vercel em **Deployments**.
 2. Localize a versão anterior que obteve validação verde.
 3. Clique em **Instant Rollback**. O tráfego será redirecionado imediatamente para a compilação estável anterior.
+

@@ -53,3 +53,4 @@ O projeto foi concebido seguindo os princípios de engenharia de software contem
 - **Atomicidade e Composição:** Componentes da pasta `src/components/ui/` (`Button`, `Card`, `Badge`, `Modal`, `FeedbackStates`) são puros e não acoplados a fontes de dados de domínio.
 - **Desacoplamento de Tipagem:** A pasta `src/types/` define contratos TypeScript de alto nível (`ProfileData`, `ProjectCase`, `Course`), desvinculados dos validadores de runtime do Zod.
 - **Tema Claro/Escuro:** Gerenciado pelo `ThemeToggle` com sincronização via `useSyncExternalStore` e `MutationObserver`, eliminando renderizações em cascata e estado redundante.
+

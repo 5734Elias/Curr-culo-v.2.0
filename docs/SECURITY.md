@@ -41,3 +41,4 @@ Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
 
 - Arquivos `.env`, `.env.local` e credenciais estão estritamente bloqueados no `.gitignore`.
 - O repositório contém apenas `.env.example` documentando chaves públicas sem valores confidenciais.
+

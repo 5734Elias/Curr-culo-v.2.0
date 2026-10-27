@@ -25,3 +25,4 @@ Utiliza um grafo semântico unificado (`@graph`):
   - `0.8`: Páginas principais (`/sobre`, `/experiencia`, `/projetos`, `/competencias`, `/formacao`, `/curriculo`, `/contato`)
   - `0.7`: Estudos de caso específicos (`/projetos/[slug]`)
 - **Robots.txt:** Bloqueia endpoints de API (`/api/`) e componentes de demonstração (`/design-system`), apontando diretamente para o `sitemap.xml`.
+

@@ -13,3 +13,4 @@ Configurou-se o comando `"build": "next build --webpack"` no `package.json`, gar
 ## Consequências
 - **Positivas:** Compilação 100% previsível e livre de crashes inesperados; compatibilidade total com plugins PostCSS.
 - **Negativas:** Tempo de compilação ligeiramente maior se comparado ao Turbopack experimental, porém sem impacto perceptível no tamanho ou performance do bundle final.
+

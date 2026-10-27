@@ -47,3 +47,4 @@ npm run test
 - Altura mínima de 44px para botões de toque (Target Size WCAG 2.2 AA).
 - Atributos ARIA no `ThemeToggle` e links de navegação.
 - Presença de Skip Link (`#main-content`) no layout global.
+

@@ -21,3 +21,4 @@
 - Todas as imagens possuem atributos `alt` descritivos e semânticos.
 - Efeitos visuais puramente decorativos em Canvas utilizam `aria-hidden="true"`.
 - Alternador de tema possui atributos `aria-label` que informam o estado atual e a ação disponível.
+

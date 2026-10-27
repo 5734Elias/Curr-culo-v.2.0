@@ -32,3 +32,4 @@
   ```text
   tipo: descrição da alteração | YYYY-MM-DD HH:mm
   ```
+
