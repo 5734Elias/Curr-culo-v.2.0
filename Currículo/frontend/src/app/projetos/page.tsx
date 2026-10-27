@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/FeedbackStates';
 import { PROJECTS } from '@/data/projects';
 import { ArrowRight } from 'lucide-react';
 
@@ -69,49 +70,58 @@ export default function ProjetosPage() {
         </div>
 
         {/* Grid de Projetos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {filteredProjects.map((project) => (
-            <Card key={project.slug} hoverEffect className="flex flex-col justify-between h-full bg-[#192122]/90 border border-[#3a494b]">
-              <div>
-                <CardHeader>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {project.technologies.slice(0, 3).map((tech) => (
-                      <Badge key={tech} variant="cyber">
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                  <CardTitle className="text-lg leading-snug">{project.title}</CardTitle>
-                  <CardDescription className="text-xs mt-2 leading-relaxed">
-                    {project.summary}
-                  </CardDescription>
-                </CardHeader>
+        {filteredProjects.length === 0 ? (
+          <EmptyState
+            title="Nenhum projeto encontrado"
+            message="Não há projetos correspondentes ao domínio selecionado."
+            actionLabel="Limpar Filtros"
+            onAction={() => setSelectedDomain('todos')}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {filteredProjects.map((project) => (
+              <Card key={project.slug} hoverEffect className="flex flex-col justify-between h-full bg-[#192122]/90 border border-[#3a494b]">
+                <div>
+                  <CardHeader>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {project.technologies.slice(0, 3).map((tech) => (
+                        <Badge key={tech} variant="cyber">
+                          {tech}
+                        </Badge>
+                      ))}
+                    </div>
+                    <CardTitle className="text-lg leading-snug">{project.title}</CardTitle>
+                    <CardDescription className="text-xs mt-2 leading-relaxed">
+                      {project.summary}
+                    </CardDescription>
+                  </CardHeader>
 
-                <CardContent className="space-y-4 pt-2">
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-mono text-[#00f2ff] block uppercase tracking-wider">
-                      Resultados Medidos:
-                    </span>
-                    {project.outcomes.map((outcome) => (
-                      <div key={outcome.label} className="flex justify-between text-xs font-mono text-[#b9cacb]">
-                        <span>{outcome.label}:</span>
-                        <span className="text-[#00f2ff] font-semibold">{outcome.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </div>
+                  <CardContent className="space-y-4 pt-2">
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-mono text-[#00f2ff] block uppercase tracking-wider">
+                        Resultados Medidos:
+                      </span>
+                      {project.outcomes.map((outcome) => (
+                        <div key={outcome.label} className="flex justify-between text-xs font-mono text-[#b9cacb]">
+                          <span>{outcome.label}:</span>
+                          <span className="text-[#00f2ff] font-semibold">{outcome.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </div>
 
-              <CardFooter className="pt-4 border-t border-[#3a494b]/60">
-                <Link href={`/projetos/${project.slug}`} className="w-full">
-                  <Button variant="primary" size="sm" className="w-full" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                    Abrir Estudo de Caso
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+                <CardFooter className="pt-4 border-t border-[#3a494b]/60">
+                  <Link href={`/projetos/${project.slug}`} className="w-full">
+                    <Button variant="primary" size="sm" className="w-full" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                      Abrir Estudo de Caso
+                    </Button>
+                  </Link>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </main>
 
       <Footer />

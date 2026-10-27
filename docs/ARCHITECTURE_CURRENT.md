@@ -47,3 +47,4 @@ A aplicação é construída com **Next.js (App Router)**, operando principalmen
 2. **Duplicação de Metadados:** Informações do desenvolvedor estão duplicadas manualmente em `layout.tsx` em vez de referenciar `profile.ts`.
 3. **Persistência de Rate Limiting Incompatível com Serverless:** O uso de `Map` em memória RAM local falha em funções lambda efêmeras.
 4. **Acoplamento de Efeitos Visuais:** Animações intensivas de Canvas/WebGL rodam sem controle explícito de preferência de movimento do usuário (`prefers-reduced-motion`).
+

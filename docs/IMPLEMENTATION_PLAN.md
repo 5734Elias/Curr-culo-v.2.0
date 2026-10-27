@@ -61,3 +61,4 @@
 ### Fase 8: CI/CD e Documentação Final
 - [ ] Configurar GitHub Actions Workflow para validação contínua (Lint -> Typecheck -> Test -> Build).
 - [ ] Atualizar README.md com guia de instalação, arquitetura e variáveis de ambiente documentadas em `.env.example`.
+

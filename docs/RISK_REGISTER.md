@@ -15,3 +15,4 @@
 | **RSK-06** | Inconsistência de perfis e redes sociais (LinkedIn divergente) | **Média** | Alta | Baixo: Link quebrado ou perfil incorreto para recrutadores | Centralizar dados em `src/data/profile.ts` como Fonte Única da Verdade | Em Correção |
 | **RSK-07** | Efeitos de Matrix e animações sem suporte a `prefers-reduced-motion` | **Média** | Média | Médio: Problema de acessibilidade (WCAG 2.2 AA) | Adicionar verificação de acessibilidade e redução de movimento nos componentes de efeito | Planejado |
 | **RSK-08** | Ausência de suíte de testes automatizados | **Média** | Alta | Médio: Riscos de regressão a cada nova funcionalidade | Implementar testes com Vitest / React Testing Library para componentes e serviços | Planejado |
+

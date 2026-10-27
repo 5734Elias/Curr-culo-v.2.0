@@ -3,6 +3,16 @@
 Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
+## [3.0.0-phase2] - 2026-10-27
+
+### Adicionado e Aprimorado
+- **Tema Claro/Escuro (ThemeToggle):** Implementado botão acessível de alternância de tema no desktop e mobile, com prevenção de FOUC via script no `<head>` e tokens semânticos em `globals.css`.
+- **Acessibilidade e WCAG 2.2 AA:**
+  - Ajustados alvos de toque em botões (`Button.tsx`) com altura mínima de 44px para mobile.
+  - Implementado suporte robusto a `useSyncExternalStore` no `ThemeToggle` evitando renderizações cascata no React 19.
+- **Componentes de Feedback Visual:** Criados `LoadingState`, `ErrorState` e `EmptyState` em `src/components/ui/FeedbackStates.tsx`.
+- **Estados Vazios em Listagens:** Integrado `EmptyState` à tela de `/projetos` quando nenhum resultado atende ao filtro.
+
 ## [3.0.0-phase1] - 2026-10-27
 
 ### Corrigido e Aprimorado

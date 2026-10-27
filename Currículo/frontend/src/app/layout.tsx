@@ -88,6 +88,25 @@ export default function RootLayout({
     <html lang="pt-BR" className={`dark ${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
         <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var saved = localStorage.getItem('theme');
+                  var prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+                  if (saved === 'light' || (!saved && prefersLight)) {
+                    document.documentElement.classList.add('light');
+                    document.documentElement.classList.remove('dark');
+                  } else {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />

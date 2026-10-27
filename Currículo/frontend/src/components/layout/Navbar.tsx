@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Terminal, Shield, Code, Award, FileText, Send, User } from 'lucide-react';
 import { clsx } from 'clsx';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const NAV_ITEMS = [
   { label: 'Home', href: '/', icon: Terminal },
@@ -96,18 +97,24 @@ export const Navbar: React.FC = () => {
               </Link>
             );
           })}
+          <div className="ml-2 pl-2 border-l border-[#3a494b]/60 flex items-center">
+            <ThemeToggle />
+          </div>
         </nav>
 
-        {/* Mobile Menu Button */}
-        <button
-          ref={menuButtonRef}
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-expanded={mobileMenuOpen}
-          aria-label={mobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
-          className="lg:hidden p-2 rounded-[0.25rem] text-[#b9cacb] hover:text-[#00f2ff] hover:bg-[#192122] focus-visible:outline-2 focus-visible:outline-[#00f2ff]"
-        >
-          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        {/* Mobile Actions: ThemeToggle + Mobile Menu Button */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <ThemeToggle />
+          <button
+            ref={menuButtonRef}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+            className="p-2 rounded-[0.25rem] text-[#b9cacb] hover:text-[#00f2ff] hover:bg-[#192122] focus-visible:outline-2 focus-visible:outline-[#00f2ff]"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Dropdown Navigation */}

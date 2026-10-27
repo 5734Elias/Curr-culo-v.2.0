@@ -36,10 +36,13 @@
 ---
 
 ## Fase 2: Redesign Premium UI/UX & Acessibilidade
-- [ ] Acessibilidade WCAG 2.2 AA (Skip links, contrastes, ARIA)
-- [ ] Suporte a `prefers-reduced-motion` nos efeitos Matrix e partículas
-- [ ] Refinamento do Hero e cards de projetos com hierarquia limpa
-- [ ] Tema claro/escuro com persistência sem flash visual (FOUC)
+- [x] Acessibilidade WCAG 2.2 AA (Skip links, foco visível, labels ARIA e target size mínimo)
+- [x] Suporte a `prefers-reduced-motion` nos efeitos Matrix e partículas de fundo
+- [x] Tema claro/escuro com componente `ThemeToggle` e persistência sem flash visual (FOUC)
+- [x] Criação de componentes de feedback acessíveis (`LoadingState`, `ErrorState`, `EmptyState`)
+- [x] Tratamento de estado vazio (`EmptyState`) na listagem de projetos filtrados
+- [x] Refinamento dos tamanhos de botões e alvos de toque para mobile (min-h: 44px)
+- [x] Validação completa de compilação, lint e testes após redesign
 
 ---
 

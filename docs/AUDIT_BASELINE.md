@@ -97,3 +97,4 @@ Foram identificadas **6 vulnerabilidades** (1 Crítica, 5 Altas):
   - `src/data/profile.ts`: `https://www.linkedin.com/in/elias-ribeiro-dos-reis-3b289a43`
 - **Configurações de Segurança HTTP:**
   - `next.config.ts` está vazio. Não existem cabeçalhos de segurança (CSP, HSTS, X-Content-Type-Options, etc.).
+
