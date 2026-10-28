@@ -6,10 +6,10 @@ import { Footer } from '@/components/layout/Footer';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { PROFILE } from '@/data/profile';
+import { PROFILE, WHATSAPP_CONTACT_URL, TELEGRAM_CONTACT_URL } from '@/data/profile';
 import { isContactApiEnabled } from '@/lib/siteConfig';
 import { ContactPayloadSchema, ContactPayload } from '@/schemas/content';
-import { Send, CheckCircle, AlertCircle, Mail, Lock, ExternalLink } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, Mail, Lock, ExternalLink, MessageCircle } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from '@/components/ui/Icons';
 
 const DEFAULT_SUBJECT = 'Oportunidade Profissional / Contato via Portfólio';
@@ -134,7 +134,7 @@ export default function ContatoPage() {
         <SectionHeader
           badge="Contato Profissional"
           title="Fale Comigo & Propostas de Trabalho"
-          description="Entre em contato para oportunidades profissionais, projetos de software, consultoria em IA ou cibersegurança diretamente por e-mail, LinkedIn ou GitHub."
+          description="Entre em contato para oportunidades profissionais, projetos de software, consultoria em IA ou cibersegurança diretamente por WhatsApp, Telegram, e-mail ou LinkedIn."
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -332,7 +332,7 @@ export default function ContatoPage() {
             </Card>
           </div>
 
-          {/* Canais Diretos (E-mail, LinkedIn e GitHub) */}
+          {/* Canais Diretos (WhatsApp, Telegram, e-mail, LinkedIn e GitHub) */}
           <div className="lg:col-span-5 space-y-6">
             <Card hoverEffect={false} className="bg-[#192122] border border-[#3a494b]">
               <CardHeader>
@@ -340,10 +340,38 @@ export default function ContatoPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-[#b9cacb] leading-relaxed">
-                  Você também pode iniciar contato imediato pelo seu aplicativo de e-mail ou acessar minhas redes profissionais:
+                  Você também pode enviar uma mensagem pelo WhatsApp ou Telegram, abrir seu aplicativo de e-mail ou acessar minhas redes profissionais:
                 </p>
 
                 <div className="space-y-3 font-mono text-xs">
+                  <a
+                    href={WHATSAPP_CONTACT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Conversar por WhatsApp no número ${PROFILE.phone}`}
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                  >
+                    <MessageCircle className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
+                    <div>
+                      <span className="text-[10px] text-[#849495] block">WHATSAPP — ENVIAR MENSAGEM:</span>
+                      <span className="font-semibold">{PROFILE.phone}</span>
+                    </div>
+                  </a>
+
+                  <a
+                    href={TELEGRAM_CONTACT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Conversar por Telegram no número ${PROFILE.phone}`}
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                  >
+                    <Send className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
+                    <div>
+                      <span className="text-[10px] text-[#849495] block">TELEGRAM — ENVIAR MENSAGEM:</span>
+                      <span className="font-semibold">{PROFILE.phone}</span>
+                    </div>
+                  </a>
+
                   <a
                     href={`mailto:${PROFILE.email}?subject=${encodeURIComponent(
                       DEFAULT_SUBJECT
