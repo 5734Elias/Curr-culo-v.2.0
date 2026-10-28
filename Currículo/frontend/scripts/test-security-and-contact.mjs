@@ -56,29 +56,22 @@ console.log('PASS: Todas as regras de validação do schema e limites máximos f
 
 // 2. Teste de Extração e Anonimização de IP
 console.log('[2/4] Testando extração e hash de IP...');
-// Priorização de proxy confiável Vercel sobre cabeçalho spoofed
+// Priorização do cabeçalho gerenciado pela Vercel (x-vercel-forwarded-for)
 const vercelMockHeaders = new Headers({
-  'x-forwarded-for': '1.1.1.1', // Possível spoofing de cliente
+  'x-forwarded-for': '198.51.100.1',
   'x-vercel-forwarded-for': '203.0.113.195, 70.41.3.18',
 });
 const vercelIp = extractClientIp(vercelMockHeaders);
-assert.strictEqual(vercelIp, '203.0.113.195', 'Deve priorizar x-vercel-forwarded-for da infraestrutura sobre x-forwarded-for não confiável.');
+assert.strictEqual(vercelIp, '203.0.113.195', 'Deve priorizar x-vercel-forwarded-for gerenciado pela Vercel.');
 
-// Priorização de Cloudflare cf-connecting-ip
-const cfMockHeaders = new Headers({
-  'x-forwarded-for': '1.1.1.1',
-  'cf-connecting-ip': '198.51.100.42',
-});
-assert.strictEqual(extractClientIp(cfMockHeaders), '198.51.100.42', 'Deve priorizar cf-connecting-ip sobre x-forwarded-for.');
-
-// Mitigação de spoofing em X-Forwarded-For: cliente forja na esquerda, proxy confiável anexa na direita
-const spoofedXffHeaders = new Headers({
-  'x-forwarded-for': '1.2.3.4, 198.51.100.55',
+// Extração padrão em x-forwarded-for (primeiro IP do cliente)
+const standardXffHeaders = new Headers({
+  'x-forwarded-for': '198.51.100.55, 70.41.3.18',
 });
 assert.strictEqual(
-  extractClientIp(spoofedXffHeaders),
+  extractClientIp(standardXffHeaders),
   '198.51.100.55',
-  'Em x-forwarded-for puro, deve extrair o rightmost hop anexado pelo proxy em vez do IP forjado pelo cliente.'
+  'Em x-forwarded-for, deve extrair o primeiro IP (origem do cliente).'
 );
 
 // Rejeição de formatos de IP inválidos ou maliciosos

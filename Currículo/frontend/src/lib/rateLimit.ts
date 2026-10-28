@@ -50,49 +50,31 @@ export function isValidIp(ip: string): boolean {
 }
 
 /**
- * Extrai e sanitiza o endereço IP real da requisição considerando a topologia real de proxies:
- *
- * 1. x-vercel-forwarded-for: Autoridade absoluta na infraestrutura Vercel. Gerado e assinado no
- *    Edge de entrada; qualquer tentativa de spoofing pelo cliente é sobrescrita pela Vercel.
- * 2. cf-connecting-ip: Autoridade de borda Cloudflare.
- * 3. x-real-ip: Atribuído por proxy reverso autoritativo único (ex: Nginx, AWS ALB).
- * 4. x-forwarded-for: Em arquiteturas com múltiplos proxies reversos, o cliente injeta valores à
- *    esquerda e os proxies confiáveis anexam o IP real à direita. Portanto, avaliamos da direita
- *    para a esquerda (rightmost hop) para evitar que IPs spoofados pelo cliente sejam adotados.
+ * Extrai e sanitiza o endereço IP real da requisição para a topologia de borda da Vercel:
+ * 1. x-vercel-forwarded-for: Cabeçalho gerenciado e fornecido pela infraestrutura da Vercel contendo o IP do cliente.
+ * 2. x-forwarded-for: Cabeçalho padrão HTTP onde o IP do cliente conecta na primeira posição (client, proxy1, proxy2).
+ * 3. Sanitização: Validação estrita de formato IPv4 / IPv6, evitando valores maliciosos ou corrompidos.
  */
 export function extractClientIp(headers: Headers): string {
-  // 1. Vercel Edge Proxy Autorizado
+  // 1. Cabeçalho gerenciado e fornecido pela plataforma Vercel
   const vercelIp = headers.get('x-vercel-forwarded-for');
   if (vercelIp) {
-    const candidate = vercelIp.split(',')[0].trim();
-    if (isValidIp(candidate)) return candidate;
-  }
-
-  // 2. Cloudflare Edge Proxy
-  const cfConnectingIp = headers.get('cf-connecting-ip');
-  if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) {
-    return cfConnectingIp.trim();
-  }
-
-  // 3. Proxy reverso direto (X-Real-IP)
-  const realIp = headers.get('x-real-ip');
-  if (realIp && isValidIp(realIp.trim())) {
-    return realIp.trim();
-  }
-
-  // 4. Cadeia padrão X-Forwarded-For (Proteção contra Spoofing: leitura do rightmost hop confiável)
-  const forwardedFor = headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    const parts = forwardedFor.split(',').map((p) => p.trim()).filter(Boolean);
-    // Avalia da direita para a esquerda: o proxy reverso de borda sempre anexa no final
-    for (let i = parts.length - 1; i >= 0; i--) {
-      if (isValidIp(parts[i])) {
-        return parts[i];
-      }
+    const parts = vercelIp.split(',').map((p) => p.trim());
+    for (const candidate of parts) {
+      if (isValidIp(candidate)) return candidate;
     }
   }
 
-  // Fallback seguro caso nenhum cabeçalho válido seja detectado
+  // 2. Cabeçalho padrão X-Forwarded-For (primeiro IP válido representa a origem do cliente)
+  const forwardedFor = headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const parts = forwardedFor.split(',').map((p) => p.trim());
+    for (const candidate of parts) {
+      if (isValidIp(candidate)) return candidate;
+    }
+  }
+
+  // 3. Fallback seguro caso nenhum cabeçalho válido seja detectado
   return '127.0.0.1';
 }
 
