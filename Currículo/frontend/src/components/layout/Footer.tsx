@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { PROFILE } from '@/data/profile';
-import { Mail, ShieldCheck, Terminal } from 'lucide-react';
+import { PROFILE, WHATSAPP_CONTACT_URL, TELEGRAM_CONTACT_URL } from '@/data/profile';
+import { Mail, ShieldCheck, Terminal, MessageCircle, Send } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from '@/components/ui/Icons';
 
 export const Footer: React.FC = () => {
@@ -66,6 +66,22 @@ export const Footer: React.FC = () => {
               Canais Autorizados
             </h4>
             <ul className="space-y-2.5 text-xs">
+              <li>
+                <a href={WHATSAPP_CONTACT_URL} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
+                  aria-label={`Enviar mensagem pelo WhatsApp para ${PROFILE.phone}`}>
+                  <MessageCircle className="w-4 h-4 text-[#00f2ff]" aria-hidden="true" />
+                  <span>WhatsApp — {PROFILE.phone}</span>
+                </a>
+              </li>
+              <li>
+                <a href={TELEGRAM_CONTACT_URL} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
+                  aria-label={`Enviar mensagem pelo Telegram para ${PROFILE.phone}`}>
+                  <Send className="w-4 h-4 text-[#00f2ff]" aria-hidden="true" />
+                  <span>Telegram — {PROFILE.phone}</span>
+                </a>
+              </li>
               <li>
                 <a
                   href={PROFILE.linkedin}
