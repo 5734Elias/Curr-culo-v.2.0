@@ -1,11 +1,12 @@
 import { MetadataRoute } from 'next';
 import { PROJECTS } from '@/data/projects';
+import { getSiteUrl } from '@/lib/siteConfig';
 
 // Data real da última auditoria e publicação das páginas do portfólio v3.0
 const LAST_AUDITED_DATE = new Date('2026-10-27T13:00:00.000Z');
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://eliasreis.dev';
+  const baseUrl = getSiteUrl();
 
   const staticRoutes = [
     '',

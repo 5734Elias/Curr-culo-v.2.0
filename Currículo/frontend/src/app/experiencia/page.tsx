@@ -7,9 +7,13 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { EXPERIENCES } from '@/data/experiences';
+import { getExperiences } from '@/data/experiences';
 import { PROFILE } from '@/data/profile';
 import { Briefcase, Calendar, MapPin, CheckCircle, ArrowRight, Shield } from 'lucide-react';
+
+// Revalidação periódica de 24h no Next.js (Incremental Static Regeneration)
+// Garante que o cálculo dinâmico de duração de experiências reflita a passagem do tempo
+export const revalidate = 86400;
 
 export const metadata: Metadata = {
   title: `Experiência Profissional | ${PROFILE.name}`,
@@ -18,6 +22,8 @@ export const metadata: Metadata = {
 };
 
 export default function ExperienciaPage() {
+  const experiences = getExperiences();
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0d1515] text-[#dce4e4]">
       <Navbar />
@@ -31,7 +37,7 @@ export default function ExperienciaPage() {
 
         {/* Timeline Container */}
         <div className="relative border-l-2 border-[#3a494b] ml-4 sm:ml-8 pl-6 sm:pl-10 space-y-12">
-          {EXPERIENCES.map((exp) => (
+          {experiences.map((exp) => (
             <div key={exp.id} className="relative group">
               {/* Marker Icon */}
               <div className="absolute -left-[31px] sm:-left-[47px] top-1.5 w-6 h-6 rounded-full bg-[#192122] border-2 border-[#00f2ff] flex items-center justify-center text-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.4)] group-hover:scale-110 transition-transform">

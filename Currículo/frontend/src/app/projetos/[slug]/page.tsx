@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { PROJECTS } from '@/data/projects';
 import { PROFILE } from '@/data/profile';
+import { getSiteUrl } from '@/lib/siteConfig';
 import { CheckCircle, ExternalLink, Server, Lock, TestTube, ChevronRight, ShieldCheck } from 'lucide-react';
 
 interface ProjectSlugPageProps {
@@ -45,6 +46,8 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
     notFound();
   }
 
+  const siteUrl = getSiteUrl();
+
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -53,19 +56,19 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
         '@type': 'ListItem',
         position: 1,
         name: 'Início',
-        item: 'https://eliasreis.dev',
+        item: siteUrl,
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Projetos',
-        item: 'https://eliasreis.dev/projetos',
+        item: `${siteUrl}/projetos`,
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: project.title,
-        item: `https://eliasreis.dev/projetos/${project.slug}`,
+        item: `${siteUrl}/projetos/${project.slug}`,
       },
     ],
   };
@@ -78,7 +81,7 @@ export default async function ProjectDetailPage({ params }: ProjectSlugPageProps
     author: {
       '@type': 'Person',
       name: PROFILE.name,
-      url: 'https://eliasreis.dev',
+      url: siteUrl,
     },
     inLanguage: 'pt-BR',
     keywords: project.technologies.join(', '),

@@ -2,43 +2,87 @@
 
 ---
 
-## 1. Proteção de Cabeçalhos HTTP (`next.config.ts`)
+## 1. Stack Tecnológica & Proteção de Cabeçalhos HTTP (`next.config.ts`)
 
-O arquivo de configuração do Next.js aplica cabeçalhos de segurança obrigatórios para todas as rotas:
+A aplicação opera sobre **Next.js 16.4.3** (atualização de segurança compatível da série Next.js 16), **React 19.2.8** e **Zod 4.6.6**, com **0 vulnerabilidades** reportadas no `npm audit`. A suíte de testes do projeto executa de forma nativa e estrita via **`npx tsx` (TypeScript Execute)**, garantindo fidelidade de tipos TypeScript e módulos ESM sem necessidade de transpiladores legados (como Jest/Babel).
 
-```typescript
+O arquivo de configuração do Next.js aplica cabeçalhos de segurança obrigatórios para todas as rotas com conformidade OWASP:
+
+```text
 // Content-Security-Policy (CSP)
 default-src 'self';
-script-src 'self' 'unsafe-inline' 'unsafe-eval';
+script-src 'self' 'unsafe-inline' (apenas em dev: 'unsafe-eval');
+script-src-attr 'none';
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
 font-src 'self' https://fonts.gstatic.com data:;
 img-src 'self' data: blob: https:;
 connect-src 'self' https://api.resend.com;
+object-src 'none';
+base-uri 'self';
 frame-ancestors 'none';
 form-action 'self';
+upgrade-insecure-requests;
 
 // Strict-Transport-Security (HSTS)
 max-age=63072000; includeSubDomains; preload
 
-// Outros
+// Outros Controles de Defesa em Profundidade
 X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
 ```
 
----
-
-## 2. Conformidade LGPD por Design
-
-- **Anonimização de Endereço IP:** O sistema nunca armazena o endereço IP em texto puro. O rate limiter calcula o hash unidirecional `SHA-256(ip + salt)`, impedindo a identificação direta do visitante em caso de inspeção de logs.
-- **Minimização de Dados:** O formulário de contato coleta estritamente o necessário (nome, e-mail, assunto e mensagem) com termo explícito de consentimento.
-- **Honeypot Anti-Bot:** O campo invisível `websiteHoneypot` descarta silenciosamente submissões automatizadas de robôs sem expor detalhes internos.
+### Destaques das Atualizações de CSP:
+- **Eliminação de `unsafe-eval` em Produção:** `unsafe-eval` foi totalmente eliminado dos builds de produção, permanecendo condicional apenas em desenvolvimento para suporte ao Webpack HMR.
+- **Redução de Injeção Inline:** Ativação de `script-src-attr 'none'`, bloqueando a execução de atributos HTML de eventos (`onclick`, `onerror`, etc.), reduzindo substancialmente a superfície de ataque XSS.
+- **Isolamento de Objetos e Base:** Adição de `object-src 'none'` e `base-uri 'self'`.
+- **Avaliação de Nonce vs. SSG (Static Site Generation):** O uso de Nonce dinâmico via `middleware.ts` impede a geração estática no Next.js App Router (SSG), pois cada requisição geraria um nonce aleatório não presente nos scripts estáticos pré-renderizados em HTML na CDN da Vercel. Mantém-se `script-src-attr 'none'` e eliminação de `unsafe-eval` como modelo de defesa em profundidade compatível com SSG de altíssima performance.
 
 ---
 
-## 3. Gestão de Segredos e Variáveis de Ambiente
+## 2. Rate Limiting Serverless (5 Requisições por Hora por IP)
+
+Em arquiteturas serverless (Vercel, AWS Lambda, Cloudflare Workers), contadores em memória RAM local são voláteis e não são compartilhados entre instâncias.
+
+O rate limiter (`src/lib/rateLimit.ts` e `src/app/api/contact/route.ts`) implementa cota estrita de **5 requisições por hora (janela de 3600 segundos)** por IP anonimizado:
+- **Operação Atômica via Script Lua:** A verificação no Redis (Upstash / Vercel KV) utiliza um script Lua atômico (`EVAL`) que executa `INCR` e define incondicionalmente o `PEXPIRE` na mesma transação atômica. Isso elimina 100% dos riscos de chaves sem TTL ou race conditions em caso de falha de conexão.
+- **Política Estrita de Produção (Fail-Closed por Padrão):**
+  - **Ausência de Redis em Produção:** Se as variáveis `UPSTASH_REDIS_REST_URL/TOKEN` ou `KV_REST_API_URL/TOKEN` não estiverem configuradas em ambiente de produção, a rota bloqueia preventivamente por Fail-Closed (HTTP 503 com alerta crítico nos logs). O fallback silencioso para memória em produção é proibido por padrão para evitar brechas em ambiente multinstância serverless.
+  - **Falha de Conectividade do Redis:** Em produção (`NODE_ENV === 'production'`), qualquer timeout ou erro de rede do cluster Redis resulta em bloqueio seguro imediato (`provider: 'fail-closed'`).
+  - **Opt-in Operacional:** Somente se `RATE_LIMIT_ALLOW_DEGRADED_FALLBACK="true"` for configurado expressamente pelo operador, admite-se o modo degradado com cota restritiva (máximo 2 requisições por instância).
+- **Topologia de Borda da Vercel e Sanitização de IP:**
+  - **`x-vercel-forwarded-for`:** Prioridade para o cabeçalho gerenciado diretamente pela plataforma Vercel (documentado em https://vercel.com/docs/headers/request-headers) contendo o IP real do cliente.
+  - **`x-forwarded-for`:** Cabeçalho padrão HTTP inspecionado conforme RFC 7239 / MDN (primeiro nó da cadeia representando o cliente).
+  - **Validação Sintática Rigorosa:** Verificação de formato IPv4 e IPv6 descarta injeções maliciosas ou valores inválidos, recorrendo a fallback seguro `127.0.0.1`.
+- **Anonimização Criptográfica de IP (LGPD):** O sistema nunca armazena o endereço IP em texto puro. O rate limiter calcula o hash unidirecional `SHA-256(ip + salt)` antes de registrar a chave `ratelimit:contact:<hash>`.
+
+---
+
+## 3. Alternância de Temas (Tema Claro / Escuro) Nativa
+
+A alternância de temas do projeto é implementada no componente [`ThemeToggle.tsx`](../Currículo/frontend/src/components/ui/ThemeToggle.tsx) de forma 100% nativa em React 19:
+- **Zero Dependências Externas:** Não utiliza a biblioteca `next-themes`.
+- **Mecanismo Reativo:** Utiliza a API `useSyncExternalStore` do React 19 combinada com `MutationObserver` no elemento raiz `document.documentElement` (observando o atributo `class`).
+- **Persistência Segura:** Sincroniza o estado selecionado com o `localStorage` do navegador e alterna as classes utilitárias `light` e `dark` com foco em conformidade de contraste WCAG 2.1 AA.
+
+---
+
+## 4. Proteção Antispam (Honeypot) & Integridade de Mensageria
+
+- **Modo de Contato Direto (`.vercel.app` sem Domínio Próprio):** Enquanto `NEXT_PUBLIC_CONTACT_API_ENABLED` não estiver ativado, a página `/contato` opera por abertura explícita do cliente de e-mail do visitante (`mailto:elias.re_is@hotmail.com` com assunto e mensagem preparados), sem transmitir nem armazenar dados digitados em serviços intermediários.
+- **Bloqueio de Remetentes Não Autorizados em Produção:** Em `src/services/contactService.ts`, o envio via Resend em produção exige obrigatoriamente `RESEND_API_KEY` e um `CONTACT_FROM_EMAIL` de domínio próprio verificado (rejeitando endereços `@resend.dev` em produção).
+- **Honeypot Silencioso:** O campo invisível `websiteHoneypot` no formulário é validado pelo schema Zod. Quando preenchido por robôs, a requisição é aceita com HTTP 200 `{ success: true, message: "Mensagem recebida." }`, descartando o payload sem alertar o bot nem consumir cotas da API de e-mail.
+- **Prevenção de Falso Sucesso em Produção:** O mock de simulação de e-mail (`MOCK_EMAIL_SERVICE`) é estritamente proibido quando `NODE_ENV === 'production'`, assegurando que nenhum falso sucesso seja gerado em ambiente produtivo.
+- **Limites Estritos de Payload:**
+  - Nome: mínimo 2, máximo 100 caracteres.
+  - E-mail: formato válido, máximo 254 caracteres (RFC 5321).
+  - Assunto: mínimo 3, máximo 150 caracteres.
+  - Mensagem: mínimo 10, máximo 2000 caracteres.
+
+---
+
+## 5. Gestão de Segredos e Variáveis de Ambiente
 
 - Arquivos `.env`, `.env.local` e credenciais estão estritamente bloqueados no `.gitignore`.
-- O repositório contém apenas `.env.example` documentando chaves públicas sem valores confidenciais.
-
+- O repositório contém apenas `.env.example` documentando as variáveis necessárias: `RESEND_API_KEY`, `CONTACT_DESTINATION_EMAIL`, `CONTACT_FROM_EMAIL`, `RATE_LIMIT_SALT`, `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`.

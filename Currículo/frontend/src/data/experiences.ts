@@ -180,11 +180,19 @@ const rawExperiencesData: RawExperienceInput[] = [
   },
 ];
 
-// Injeta o cálculo dinâmico centralizado de período e valida o schema
-export const EXPERIENCES: Experience[] = rawExperiencesData.map((exp) => {
-  const period = formatExperiencePeriod(exp.startDate, exp.endDate, exp.isCurrent);
-  return ExperienceSchema.parse({
-    ...exp,
-    period,
+/**
+ * Retorna a lista de experiências profissionais com durações calculadas dinamicamente
+ * com base na data corrente (ou data de referência customizada), respeitando o ciclo de vida do Next.js.
+ */
+export function getExperiences(referenceDate?: string): Experience[] {
+  return rawExperiencesData.map((exp) => {
+    const period = formatExperiencePeriod(exp.startDate, exp.endDate, exp.isCurrent, referenceDate);
+    return ExperienceSchema.parse({
+      ...exp,
+      period,
+    });
   });
-});
+}
+
+// Exportação estática compatível com componentes existentes
+export const EXPERIENCES: Experience[] = getExperiences();

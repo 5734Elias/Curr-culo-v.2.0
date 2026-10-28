@@ -8,16 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs && npx tsx scripts/validate-data-consistency.mjs && npx tsx scripts/test-seo-and-routes.mjs && npx tsx scripts/test-ui-accessibility.mjs"
+    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs && npx tsx scripts/validate-data-consistency.mjs && npx tsx scripts/test-seo-and-routes.mjs && npx tsx scripts/test-ui-accessibility.mjs && npx tsx scripts/test-audit-regressions.mjs && npx tsx scripts/test-services-verification.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^1.31.0",
-    "next": "16.3.0",
+    "next": "16.4.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -25,7 +25,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0",
+    "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
     "typescript": "^5"

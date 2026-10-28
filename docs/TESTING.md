@@ -4,7 +4,7 @@
 
 ## 1. Visão Geral da Suíte de Testes
 
-O comando `npm run test` orquestra uma suíte quíntupla de validação que protege a integridade factual, segurança e experiência do usuário da aplicação.
+O comando `npm run test` orquestra uma suíte de 7 scripts executados nativamente via **`npx tsx` (TypeScript Execute)**, validando integridade de dados, conformidade técnica, segurança de rotas, acessibilidade WCAG, regressões de auditoria e verificação de serviços sem dependência do Jest:
 
 ```text
 npm run test
@@ -12,7 +12,9 @@ npm run test
   ├── 2. test-security-and-contact.mjs   (Segurança de API, Schemas e Rate Limit)
   ├── 3. validate-data-consistency.mjs   (Auditoria cruzada Single Source of Truth)
   ├── 4. test-seo-and-routes.mjs         (Auditoria técnica de SEO e rotas)
-  └── 5. test-ui-accessibility.mjs       (Conformidade com WCAG 2.2 AA)
+  ├── 5. test-ui-accessibility.mjs       (Verificações de Acessibilidade Digital Alinhadas à WCAG 2.2)
+  ├── 6. test-audit-regressions.mjs      (Auditoria de Lua atômico, fail-closed e regressões)
+  └── 7. test-services-verification.mjs  (Verificação de Upstash Redis, Resend, UI e Next.js 16.3)
 ```
 
 ---
@@ -44,7 +46,7 @@ npm run test
 
 ### 2.5 Acessibilidade & UI (`scripts/test-ui-accessibility.mjs`)
 - Verificação de regras de `prefers-reduced-motion` no CSS.
-- Altura mínima de 44px para botões de toque (Target Size WCAG 2.2 AA).
+- Altura mínima de 44px para botões de toque (Target Size WCAG 2.2).
 - Atributos ARIA no `ThemeToggle` e links de navegação.
 - Presença de Skip Link (`#main-content`) no layout global.
 

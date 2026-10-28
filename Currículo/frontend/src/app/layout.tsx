@@ -3,6 +3,9 @@ import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { CyberMatrixBackground } from '@/components/effects/CyberMatrixBackground';
 import { PROFILE } from '@/data/profile';
+import { getSiteUrl } from '@/lib/siteConfig';
+
+const SITE_URL = getSiteUrl();
 
 const inter = Inter({
   subsets: ['latin'],
@@ -38,14 +41,14 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: PROFILE.name }],
   creator: PROFILE.name,
-  metadataBase: new URL('https://eliasreis.dev'),
+  metadataBase: new URL(SITE_URL),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     title: `${PROFILE.name} | ${PROFILE.role}`,
     description: `Portfólio interativo com projetos práticos, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
-    url: 'https://eliasreis.dev',
+    url: SITE_URL,
     siteName: `Portfólio ${PROFILE.name}`,
     locale: 'pt_BR',
     type: 'website',
@@ -73,11 +76,11 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'Person',
-      '@id': 'https://eliasreis.dev/#person',
+      '@id': `${SITE_URL}/#person`,
       name: PROFILE.name,
       jobTitle: PROFILE.role,
       description: PROFILE.headline,
-      url: 'https://eliasreis.dev',
+      url: SITE_URL,
       sameAs: [
         PROFILE.github,
         PROFILE.linkedin,
@@ -102,12 +105,12 @@ const jsonLd = {
     },
     {
       '@type': 'WebSite',
-      '@id': 'https://eliasreis.dev/#website',
-      url: 'https://eliasreis.dev',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
       name: `Portfólio de Engenharia de Software - ${PROFILE.name}`,
       description: PROFILE.headline,
       publisher: {
-        '@id': 'https://eliasreis.dev/#person',
+        '@id': `${SITE_URL}/#person`,
       },
       inLanguage: 'pt-BR',
     },

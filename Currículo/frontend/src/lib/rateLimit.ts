@@ -1,76 +1,198 @@
 import crypto from 'crypto';
 
-interface RateLimitRecord {
+export type RateLimitProvider =
+  | 'upstash-redis'
+  | 'memory-fallback'
+  | 'redis-degraded-fallback'
+  | 'fail-closed';
+
+export interface RateLimitRecord {
   count: number;
   resetAt: number;
 }
 
-// Armazenamento em memória com limpeza periódica para evitar vazamento de memória
-const rateLimitStore = new Map<string, RateLimitRecord>();
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+  provider: RateLimitProvider;
+}
+
+// Armazenamento em memória para fallback local (desenvolvimento / CI / testes / modo degradado opcional)
+const localMemoryStore = new Map<string, RateLimitRecord>();
 
 // Salt efêmero em runtime para anonimização de IP conforme LGPD
 const RATE_LIMIT_SALT = process.env.RATE_LIMIT_SALT || crypto.randomBytes(16).toString('hex');
 
 /**
- * Extrai e sanitiza o endereço IP real da requisição
+ * Reseta o store local (utilizado primordialmente em testes e limpeza de ambiente)
+ */
+export function resetRateLimitStore(): void {
+  localMemoryStore.clear();
+}
+
+/**
+ * Validação rigorosa de formato IPv4 ou IPv6 para prevenção de cabeçalhos forjados / injection.
+ */
+export function isValidIp(ip: string): boolean {
+  if (!ip || typeof ip !== 'string') return false;
+  const trimmed = ip.trim();
+
+  // IPv4 padrão (ex: 192.168.1.1 ou 203.0.113.195)
+  const ipv4Regex =
+    /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  if (ipv4Regex.test(trimmed)) return true;
+
+  // IPv6 canônico ou compactado
+  const ipv6Regex =
+    /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$/;
+  return ipv6Regex.test(trimmed);
+}
+
+/**
+ * Extrai e sanitiza o endereço IP real da requisição para a topologia de borda da Vercel:
+ * 1. x-vercel-forwarded-for: Cabeçalho gerenciado e fornecido pela infraestrutura da Vercel contendo o IP do cliente.
+ * 2. x-forwarded-for: Cabeçalho padrão HTTP onde o IP do cliente conecta na primeira posição (client, proxy1, proxy2).
+ * 3. Sanitização: Validação estrita de formato IPv4 / IPv6, evitando valores maliciosos ou corrompidos.
  */
 export function extractClientIp(headers: Headers): string {
-  const forwardedFor = headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    const firstIp = forwardedFor.split(',')[0].trim();
-    if (firstIp) return firstIp;
+  // 1. Cabeçalho gerenciado e fornecido pela plataforma Vercel
+  const vercelIp = headers.get('x-vercel-forwarded-for');
+  if (vercelIp) {
+    const parts = vercelIp.split(',').map((p) => p.trim());
+    for (const candidate of parts) {
+      if (isValidIp(candidate)) return candidate;
+    }
   }
 
-  const realIp = headers.get('x-real-ip');
-  if (realIp) return realIp.trim();
+  // 2. Cabeçalho padrão X-Forwarded-For (primeiro IP válido representa a origem do cliente)
+  const forwardedFor = headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const parts = forwardedFor.split(',').map((p) => p.trim());
+    for (const candidate of parts) {
+      if (isValidIp(candidate)) return candidate;
+    }
+  }
 
-  const cfConnectingIp = headers.get('cf-connecting-ip');
-  if (cfConnectingIp) return cfConnectingIp.trim();
-
+  // 3. Fallback seguro caso nenhum cabeçalho válido seja detectado
   return '127.0.0.1';
 }
 
 /**
- * Anonimiza o IP gerando um hash seguro unidirecional com salt
+ * Anonimiza o IP gerando um hash seguro unidirecional com salt (LGPD por Design)
  */
 export function hashIpForPrivacy(ip: string): string {
   return crypto.createHash('sha256').update(`${ip}:${RATE_LIMIT_SALT}`).digest('hex');
 }
 
 /**
- * Verifica e aplica rate limiting por IP anonimizado
- * @param hashedIp Hash do IP do cliente
- * @param maxRequests Máximo de requisições permitidas na janela
- * @param windowMs Janela de tempo em milissegundos
+ * Script Lua executado atomicamente no Redis (Upstash / Vercel KV).
+ * Garante incremento e definição incondicional do TTL na mesma operação atômica,
+ * eliminando chaves órfãs ou sem expiração causadas por falhas de rede.
  */
-export function checkRateLimit(
-  hashedIp: string,
-  maxRequests = 5,
-  windowMs = 60 * 60 * 1000 // 1 hora padrão
-): { allowed: boolean; remaining: number; resetAt: number } {
+export const ATOMIC_RATE_LIMIT_LUA = `
+local current = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {current, ttl}
+`.trim();
+
+/**
+ * Executa verificação atômica via REST API de Redis distribuído (Upstash Redis / Vercel KV)
+ * utilizando o script Lua de incremento e expiração atômicos.
+ */
+export async function checkDistributedRedis(
+  redisUrl: string,
+  redisToken: string,
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+  fetchFn: typeof fetch = fetch
+): Promise<RateLimitResult | null> {
+  try {
+    const endpoint = `${redisUrl.replace(/\/$/, '')}/pipeline`;
+    const commands = [
+      ['EVAL', ATOMIC_RATE_LIMIT_LUA, 1, key, windowMs.toString()],
+    ];
+
+    const response = await fetchFn(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${redisToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(commands),
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    const evalResult = Array.isArray(payload) ? payload[0]?.result : payload?.result;
+
+    if (!Array.isArray(evalResult) || evalResult.length < 2) {
+      return null;
+    }
+
+    const count = Number(evalResult[0]) || 1;
+    const ttlMs = Number(evalResult[1]) > 0 ? Number(evalResult[1]) : windowMs;
+
+    const resetAt = Date.now() + ttlMs;
+    const allowed = count <= maxRequests;
+    const remaining = Math.max(0, maxRequests - count);
+
+    return {
+      allowed,
+      remaining,
+      resetAt,
+      provider: 'upstash-redis',
+    };
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[SECURITY][RATE_LIMIT] Falha ao comunicar com Redis distribuído:', error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Fallback em memória para ambientes locais ou modo degradado
+ */
+export function checkMemoryFallback(
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+  provider: RateLimitProvider = 'memory-fallback'
+): RateLimitResult {
   const now = Date.now();
 
-  // Limpeza de registros expirados se a lista crescer
-  if (rateLimitStore.size > 1000) {
-    for (const [key, record] of rateLimitStore.entries()) {
+  // Limpeza periódica de registros expirados para prevenir saturação de memória
+  if (localMemoryStore.size > 1000) {
+    for (const [storeKey, record] of localMemoryStore.entries()) {
       if (now > record.resetAt) {
-        rateLimitStore.delete(key);
+        localMemoryStore.delete(storeKey);
       }
     }
   }
 
-  const current = rateLimitStore.get(hashedIp);
+  const current = localMemoryStore.get(key);
 
   if (!current || now > current.resetAt) {
     const newRecord: RateLimitRecord = {
       count: 1,
       resetAt: now + windowMs,
     };
-    rateLimitStore.set(hashedIp, newRecord);
+    localMemoryStore.set(key, newRecord);
     return {
       allowed: true,
-      remaining: maxRequests - 1,
+      remaining: Math.max(0, maxRequests - 1),
       resetAt: newRecord.resetAt,
+      provider,
     };
   }
 
@@ -79,16 +201,128 @@ export function checkRateLimit(
       allowed: false,
       remaining: 0,
       resetAt: current.resetAt,
+      provider,
     };
   }
 
   current.count += 1;
-  rateLimitStore.set(hashedIp, current);
+  localMemoryStore.set(key, current);
 
   return {
     allowed: true,
-    remaining: maxRequests - current.count,
+    remaining: Math.max(0, maxRequests - current.count),
     resetAt: current.resetAt,
+    provider,
   };
 }
 
+/**
+ * Verifica e aplica rate limiting por IP anonimizado.
+ *
+ * Política de Produção Estrita (Fail-Closed por Padrão):
+ * 1. Em produção (NODE_ENV === 'production'), a presença de Redis distribuído é MANDATÓRIA.
+ *    Se as variáveis de ambiente não estiverem configuradas, o sistema REJEITA requisições por Fail-Closed
+ *    (a menos que RATE_LIMIT_ALLOW_UNCONFIGURED_IN_PROD="true" seja expressamente definido).
+ * 2. Em caso de indisponibilidade ou timeout do cluster Redis em produção:
+ *    - O comportamento PADRÃO é FAIL-CLOSED: bloqueio preventivo (HTTP 503) com Retry-After.
+ *    - Somente caso RATE_LIMIT_ALLOW_DEGRADED_FALLBACK="true" seja configurado pelo operador,
+ *      o modo degradado local (máximo 2 requisições por instância) será admitido.
+ * 3. Em ambientes locais / testes (NODE_ENV !== 'production'):
+ *    - Opera via fallback em memória seguro para permitir desenvolvimento e testes de CI.
+ */
+export async function checkRateLimit(
+  hashedIp: string,
+  maxRequests = 5,
+  windowMs = 60 * 60 * 1000,
+  injectedFetch?: typeof fetch
+): Promise<RateLimitResult> {
+  const rateLimitKey = `ratelimit:contact:${hashedIp}`;
+
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+  // 1. Verificação em Ambiente de Produção
+  if (process.env.NODE_ENV === 'production') {
+    // 1.1 Se as variáveis do Redis não estiverem configuradas em produção
+    if (!redisUrl || !redisToken) {
+      const allowUnconfigured = process.env.RATE_LIMIT_ALLOW_UNCONFIGURED_IN_PROD === 'true';
+
+      console.error(
+        '[SECURITY][RATE_LIMIT] CONFIGURAÇÃO CRÍTICA AUSENTE: Redis distribuído não está configurado em produção. Aplicando Fail-Closed para proteção do sistema.',
+        {
+          key: rateLimitKey,
+          allowUnconfigured,
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      if (!allowUnconfigured) {
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: Date.now() + 60 * 1000,
+          provider: 'fail-closed',
+        };
+      }
+
+      // Se explicitamente permitido pelo operador
+      return checkMemoryFallback(rateLimitKey, Math.min(2, maxRequests), windowMs, 'redis-degraded-fallback');
+    }
+
+    // 1.2 Redis configurado: tenta execução atômica distribuída
+    const distributedResult = await checkDistributedRedis(
+      redisUrl,
+      redisToken,
+      rateLimitKey,
+      maxRequests,
+      windowMs,
+      injectedFetch
+    );
+
+    if (distributedResult) {
+      return distributedResult;
+    }
+
+    // 1.3 Falha de conectividade ou timeout do Redis em produção: FAIL-CLOSED por padrão
+    const allowDegraded = process.env.RATE_LIMIT_ALLOW_DEGRADED_FALLBACK === 'true';
+
+    console.error(
+      '[SECURITY][RATE_LIMIT] Indisponibilidade de Redis em produção. Aplicando Fail-Closed por padrão.',
+      {
+        key: rateLimitKey,
+        allowDegraded,
+        timestamp: new Date().toISOString(),
+      }
+    );
+
+    if (!allowDegraded) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: Date.now() + 60 * 1000,
+        provider: 'fail-closed',
+      };
+    }
+
+    // Modo degradado estrito se explicitamente opt-in
+    return checkMemoryFallback(rateLimitKey, Math.min(2, maxRequests), windowMs, 'redis-degraded-fallback');
+  }
+
+  // 2. Ambiente Não-Produtivo (Desenvolvimento local / Testes de CI)
+  if (redisUrl && redisToken) {
+    const distributedResult = await checkDistributedRedis(
+      redisUrl,
+      redisToken,
+      rateLimitKey,
+      maxRequests,
+      windowMs,
+      injectedFetch
+    );
+    if (distributedResult) {
+      return distributedResult;
+    }
+  }
+
+  // Fallback in-memory para dev / CI
+  return checkMemoryFallback(rateLimitKey, maxRequests, windowMs, 'memory-fallback');
+}

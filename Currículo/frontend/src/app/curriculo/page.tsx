@@ -6,11 +6,13 @@ import { Footer } from '@/components/layout/Footer';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Button } from '@/components/ui/Button';
 import { PROFILE } from '@/data/profile';
-import { EXPERIENCES } from '@/data/experiences';
+import { getExperiences } from '@/data/experiences';
 import { Printer, Mail, MapPin } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from '@/components/ui/Icons';
 
 export default function CurriculoPage() {
+  const experiences = React.useMemo(() => getExperiences(), []);
+
   const handlePrint = () => {
     if (typeof window !== 'undefined') {
       window.print();
@@ -88,7 +90,7 @@ export default function CurriculoPage() {
               Experiência Profissional
             </h2>
             <div className="space-y-6">
-              {EXPERIENCES.map((exp) => (
+              {experiences.map((exp) => (
                 <div key={exp.id} className="space-y-2 print:break-inside-avoid">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs sm:text-sm">
                     <span className="font-bold text-[#dce4e4] print:text-black">{exp.role}</span>

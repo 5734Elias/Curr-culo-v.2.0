@@ -9,19 +9,22 @@ export async function POST(req: NextRequest) {
     const rawIp = extractClientIp(req.headers);
     const hashedIp = hashIpForPrivacy(rawIp);
 
-    // 2. Rate Limiting (Máximo 5 requisições por hora por IP)
-    const rateCheck = checkRateLimit(hashedIp, 5, 60 * 60 * 1000);
+    // 2. Rate Limiting Serverless (Máximo 5 requisições por hora por IP)
+    const rateCheck = await checkRateLimit(hashedIp, 5, 60 * 60 * 1000);
     if (!rateCheck.allowed) {
+      const isFailClosed = rateCheck.provider === 'fail-closed';
       return NextResponse.json(
         {
           success: false,
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: 'Limite de mensagens excedido. Por favor, aguarde antes de tentar novamente.',
+          code: isFailClosed ? 'SERVICE_UNAVAILABLE' : 'RATE_LIMIT_EXCEEDED',
+          message: isFailClosed
+            ? 'Serviço temporariamente indisponível para proteção do sistema. Tente novamente em instantes.'
+            : 'Limite de mensagens excedido. Por favor, aguarde antes de tentar novamente.',
         },
         {
-          status: 429,
+          status: isFailClosed ? 503 : 429,
           headers: {
-            'Retry-After': Math.ceil((rateCheck.resetAt - Date.now()) / 1000).toString(),
+            'Retry-After': Math.max(1, Math.ceil((rateCheck.resetAt - Date.now()) / 1000)).toString(),
           },
         }
       );
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     const { name, email, subject, message, websiteHoneypot } = validation.data;
 
     // 4. Honeypot Antispam: se o campo invisível foi preenchido, descarta sem alertar o bot
-    if (websiteHoneypot && websiteHoneypot.length > 0) {
+    if (websiteHoneypot && websiteHoneypot.trim().length > 0) {
       return NextResponse.json(
         {
           success: true,
