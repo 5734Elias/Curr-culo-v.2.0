@@ -1,17 +1,28 @@
-# Registro de Riscos Técnicos (Risk Register)
+# Registro de Riscos Técnicos e Operacionais (Risk Register)
 
-**Data de Atualização:** 2026-10-28<br>
-**Projeto:** Portfólio Profissional v3.0
+**Data de Atualização:** 2026-10-28  
+**Projeto:** Currículo Profissional v3.0 (`curr-culo-v-2-0-8kbn`)
 
 ---
 
-| ID | Risco Técnico | Severidade | Probabilidade | Impacto | Estratégia de Mitigação | Status |
+## 1. Matriz de Riscos Mapeados e Mitigações
+
+| ID | Risco Técnico / Operacional | Severidade | Probabilidade | Impacto | Estratégia de Mitigação e Controles Aplicados | Status |
 |---|---|---|---|---|---|---|
-| **RSK-01** | Falso sucesso no formulário de contato (mensagens não são entregues) | **Crítica** | Baixa | Alto: Perda de oportunidades profissionais de recrutadores | Camada `contactService.ts` com Resend, fallback transparente e proibição estrita de mock em produção | **Mitigado** |
-| **RSK-02** | Vulnerabilidades em dependências | **Crítica** | Baixa | Alto: Riscos de DoS e RCE | Pacotes monitorados e compatibilidade de build com Next.js 16.3 e React 19 validada | Em Monitoramento |
-| **RSK-03** | Falha de Build no Windows com Turbopack em produção | **Alta** | Baixa | Médio: Impossibilidade de gerar builds locais consistentes | Configurado script de build com `--webpack` garantindo compilação estável multiplataforma | **Mitigado** |
-| **RSK-04** | Rate limiter in-memory bypassado em ambiente Serverless | **Alta** | Baixa | Médio: Vulnerabilidade a spam de formulários na Vercel | Implementado suporte nativo a Redis distribuído (Upstash/KV) com script Lua atômico (INCR+PEXPIRE), fail-safe configurável e mitigação em modo degradado | **Mitigado** |
-| **RSK-05** | Ausência ou fraqueza de Headers de Segurança HTTP (CSP, HSTS) | **Alta** | Baixa | Médio: Exposição a Clickjacking e injeção de scripts não autorizados | CSP rigorosa no `next.config.ts`, `unsafe-eval` eliminado em produção e `script-src-attr 'none'` ativo | **Mitigado** |
-| **RSK-06** | Inconsistência de perfis e redes sociais | **Média** | Baixa | Baixo: Link quebrado ou perfil incorreto para recrutadores | Fonte Única da Verdade em `profile.ts` sincronizada e testada em `validate-data-consistency.mjs` | **Mitigado** |
-| **RSK-07** | Efeitos de Matrix e animações sem suporte a acessibilidade | **Média** | Baixa | Médio: Problema de acessibilidade e desconforto visual | Suporte nativo a `prefers-reduced-motion` no CSS e alvos mínimos de 44px verificados por testes | **Mitigado** |
-| **RSK-08** | Ausência de testes de regressão para segurança e acessibilidade | **Média** | Baixa | Médio: Riscos de regressão técnica silenciosa | Suíte automatizada contínua com 6 baterias de testes em `npm run test` | **Mitigado** |
+| **RSK-01** | Falso sucesso no formulário de contato (mensagens descartadas sem ciência do visitante) | **Crítica** | Baixa | Alto: Perda de contato de recrutadores e clientes | `contactService.ts` proíbe `MOCK_EMAIL_SERVICE` quando `NODE_ENV === 'production'`. Na ausência de `RESEND_API_KEY` ou falha externa, retorna HTTP 503/502 e a UI preserva os dados digitados exibindo botão `mailto:` pré-preenchido | **Mitigado em Código / Pendente Chave na Vercel** |
+| **RSK-02** | Ausência de variáveis do Upstash Redis e Resend no ambiente Vercel (`Preview` / `Production`) | **Alta** | Média | Alto: Formulário opera em *Fail-Closed* (HTTP 503), exigindo envio manual via `mailto:` | Política *Fail-Closed* impede spam/bypass enquanto o serviço não estiver ativo. Procedimento detalhado em `docs/DEPLOYMENT.md` para conexão do Upstash Redis e Resend na Vercel | **Pendente Ação Manual no Painel Vercel** |
+| **RSK-03** | Remetente padrão `portfolio@resend.dev` restrito em produção | **Alta** | Alta (sem DNS) | Médio: Resend rejeita destinatários externos se o domínio de envio não for verificado | Documentado em `docs/DEPLOYMENT.md` o requisito de validação de domínio próprio via registros DNS (`DKIM`, `SPF`, `DMARC`) e configuração de `CONTACT_FROM_EMAIL` | **Pendente Verificação de Domínio DNS** |
+| **RSK-04** | Bypass de rate limiting em múltiplas instâncias Serverless | **Alta** | Baixa | Médio: Abuso de cota da API de e-mail | Implementado script Lua atômico (`EVAL` com `INCR` + `PTTL`/`PEXPIRE`) para Upstash Redis REST, cota de 5 requisições/hora por hash `SHA-256(ip + salt)` e *Fail-Closed* (HTTP 503, `Retry-After: 60`) por padrão em produção | **Mitigado em Código** |
+| **RSK-05** | Spoofing de cabeçalhos de IP por clientes externos | **Alta** | Baixa | Médio: Evasão de rate limiting por falsificação de cabeçalho | `extractClientIp` prioriza `x-vercel-forwarded-for` (injetado pela borda da Vercel) e `x-forwarded-for` (primeiro IP válido), com validação estrita IPv4/IPv6 e remoção de cabeçalhos de terceiros não verificados (`cf-connecting-ip`, `x-real-ip`) | **Mitigado** |
+| **RSK-06** | Vulnerabilidades reportadas em `npm audit` (Next.js 16.3.0, Zod, Sharp e devDependencies) | **Alta** | Baixa | Médio: Potencial exposição caso recursos vulneráveis fossem utilizados | Análise de superfície: (1) Advisories de Next.js 16.3.0 afetam *Server Actions* e diretiva `'use cache'`, recursos **não utilizados** neste projeto (arquitetura SSG + Route Handler único `/api/contact`); (2) Advisory de Zod afeta coleções aninhadas gigantes, não aplicável ao schema plano de 6 campos primitivos; (3) `sharp` processa apenas imagens estáticas locais confiáveis; (4) `brace-expansion`, `js-yaml` e `source-map-js` são exclusivos de `devDependencies` (lint/build) | **Risco Residual Aceito / Monitorado** |
+| **RSK-07** | Projetos legados na Vercel (`curr-culo-v-2-0` e `curr-culo-v-2-0-bx4q`) gerando checks vermelhos no GitHub | **Baixa** | Certa | Baixo: Ruído visual nos checks do Pull Request | Identificados os dois projetos com *Root Directory* na raiz `.`. O projeto oficial `curr-culo-v-2-0-8kbn` (`Currículo/frontend`) compila com sucesso. Desvinculação Git documentada aguardando autorização do proprietário | **Documentado / Aguardando Autorização** |
+| **RSK-08** | Limitação de cobertura de testes automatizados de acessibilidade | **Baixa** | Baixa | Baixo: Diferenças de renderização em leitores de tela reais | Scripts automatizados verificam semântica HTML, skip-link, `prefers-reduced-motion`, ARIA e `min-h: 44px`, mas não substituem auditoria assistiva manual (NVDA/VoiceOver) | **Risco Residual Documentado** |
+
+---
+
+## 2. Decisões Arquiteturais e Limitações Conhecidas
+
+1. **CSP Compatível com SSG (`script-src 'self' 'unsafe-inline'; script-src-attr 'none'`):**
+   - No Next.js App Router com geração estática (SSG), a adoção de *nonces* por requisição exigiria renderização dinâmica em todas as rotas, eliminando o cache estático na CDN. Como mitigação compensatória, `unsafe-eval` é removido em produção, `script-src-attr 'none'` bloqueia handlers inline (`onclick`, `onerror`), `object-src 'none'` e `frame-ancestors 'none'` estão ativos e toda entrada de usuário passa por validação estrita e nunca é interpolada em HTML.
+2. **Anonimização de Dados e Retenção Zero em Banco (LGPD):**
+   - A aplicação não armazena mensagens ou dados pessoais em banco de dados persistente. O IP do visitante é transformado em hash irreversível `SHA-256(ip + salt)` com TTL máximo de 1 hora apenas para controle de taxa.
