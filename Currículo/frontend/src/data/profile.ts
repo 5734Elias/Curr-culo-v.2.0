@@ -13,3 +13,7 @@ export const PROFILE: ProfileData = {
   linkedin: 'https://www.linkedin.com/in/elias-ribeiro-dos-reis-3b289a43',
   availability: 'Disponível para novas oportunidades e projetos de engenharia de software',
 };
+
+/** Canais de mensagens profissionais (número em formato internacional). */
+export const WHATSAPP_CONTACT_URL = 'https://wa.me/5511986050195?text=Ol%C3%A1%2C%20Elias%21%20Vi%20seu%20portf%C3%B3lio%20e%20gostaria%20de%20conversar.';
+export const TELEGRAM_CONTACT_URL = 'https://t.me/+5511986050195';
