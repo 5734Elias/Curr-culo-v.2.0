@@ -67,18 +67,26 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2.5 text-xs">
               <li>
-                <a href={WHATSAPP_CONTACT_URL} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
-                  aria-label={`Enviar mensagem pelo WhatsApp para ${PROFILE.phone}`}>
-                  <MessageCircle className="w-4 h-4 text-[#00f2ff]" aria-hidden="true" />
+                <a
+                  href={WHATSAPP_CONTACT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 py-1 rounded-[0.25rem] hover:text-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] transition-colors"
+                  aria-label={`Conversar pelo WhatsApp no número ${PROFILE.phone}`}
+                >
+                  <MessageCircle className="w-4 h-4 text-[#00f2ff] shrink-0" aria-hidden="true" />
                   <span>WhatsApp — {PROFILE.phone}</span>
                 </a>
               </li>
               <li>
-                <a href={TELEGRAM_CONTACT_URL} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
-                  aria-label={`Enviar mensagem pelo Telegram para ${PROFILE.phone}`}>
-                  <Send className="w-4 h-4 text-[#00f2ff]" aria-hidden="true" />
+                <a
+                  href={TELEGRAM_CONTACT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 py-1 rounded-[0.25rem] hover:text-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] transition-colors"
+                  aria-label={`Enviar mensagem pelo Telegram para ${PROFILE.phone}`}
+                >
+                  <Send className="w-4 h-4 text-[#00f2ff] shrink-0" aria-hidden="true" />
                   <span>Telegram — {PROFILE.phone}</span>
                 </a>
               </li>
@@ -87,9 +95,10 @@ export const Footer: React.FC = () => {
                   href={PROFILE.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
+                  className="inline-flex items-center gap-2 py-1 rounded-[0.25rem] hover:text-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] transition-colors"
+                  aria-label="Acessar perfil profissional no LinkedIn"
                 >
-                  <LinkedinIcon className="w-4 h-4 text-[#00f2ff]" />
+                  <LinkedinIcon className="w-4 h-4 text-[#00f2ff] shrink-0" aria-hidden="true" />
                   <span>LinkedIn</span>
                 </a>
               </li>
@@ -98,18 +107,20 @@ export const Footer: React.FC = () => {
                   href={PROFILE.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
+                  className="inline-flex items-center gap-2 py-1 rounded-[0.25rem] hover:text-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] transition-colors"
+                  aria-label="Acessar projetos e repositórios no GitHub"
                 >
-                  <GithubIcon className="w-4 h-4 text-[#00f2ff]" />
+                  <GithubIcon className="w-4 h-4 text-[#00f2ff] shrink-0" aria-hidden="true" />
                   <span>GitHub</span>
                 </a>
               </li>
               <li>
                 <a
                   href={`mailto:${PROFILE.email}`}
-                  className="flex items-center gap-2 hover:text-[#00f2ff] transition-colors"
+                  className="inline-flex items-center gap-2 py-1 rounded-[0.25rem] hover:text-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] transition-colors"
+                  aria-label={`Enviar e-mail para ${PROFILE.email}`}
                 >
-                  <Mail className="w-4 h-4 text-[#00f2ff]" />
+                  <Mail className="w-4 h-4 text-[#00f2ff] shrink-0" aria-hidden="true" />
                   <span>{PROFILE.email}</span>
                 </a>
               </li>

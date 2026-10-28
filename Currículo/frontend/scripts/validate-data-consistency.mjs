@@ -1,18 +1,54 @@
 import assert from 'node:assert';
-import { PROFILE } from '../src/data/profile.ts';
+import {
+  PROFILE,
+  PHONE_INTERNATIONAL,
+  WHATSAPP_INITIAL_MESSAGE,
+  WHATSAPP_CONTACT_URL,
+  TELEGRAM_CONTACT_URL,
+} from '../src/data/profile.ts';
 import { PROJECTS } from '../src/data/projects.ts';
 import { EXPERIENCES } from '../src/data/experiences.ts';
 import { COURSES } from '../src/data/courses.ts';
 
 console.log('--- TEST SUITE: SINGLE SOURCE OF TRUTH & DATA CONSISTENCY ---');
 
-// 1. Validação de Profile Central (PROFILE)
-console.log('[1/5] Validando integridade da Fonte Única de Dados do Perfil...');
+// 1. Validação de Profile Central (PROFILE) e Canais WhatsApp / Telegram
+console.log('[1/5] Validando integridade da Fonte Única de Dados do Perfil e Mensageiros...');
 assert.ok(PROFILE.name.length > 5, 'Nome do perfil deve ser preenchido.');
+assert.strictEqual(
+  PROFILE.phone,
+  '+55 (11) 98605-0195',
+  'Telefone do perfil deve estar no formato padronizado +55 (11) 98605-0195.'
+);
+assert.strictEqual(
+  PHONE_INTERNATIONAL,
+  '5511986050195',
+  'Número internacional normalizado deve ser exatamente 5511986050195.'
+);
+assert.strictEqual(
+  WHATSAPP_INITIAL_MESSAGE,
+  'Olá, Elias! Vi seu portfólio profissional e gostaria de conversar sobre uma oportunidade ou projeto.',
+  'Mensagem inicial do WhatsApp deve corresponder ao texto profissional homologado.'
+);
+assert.ok(
+  WHATSAPP_CONTACT_URL.startsWith('https://wa.me/5511986050195?text='),
+  'URL do WhatsApp deve utilizar wa.me com o número internacional 5511986050195.'
+);
+const parsedWhatsappUrl = new URL(WHATSAPP_CONTACT_URL);
+assert.strictEqual(
+  parsedWhatsappUrl.searchParams.get('text'),
+  WHATSAPP_INITIAL_MESSAGE,
+  'Parâmetro text da URL do WhatsApp deve decodificar exatamente para a mensagem inicial.'
+);
+assert.strictEqual(
+  TELEGRAM_CONTACT_URL,
+  'https://t.me/+5511986050195',
+  'URL do Telegram deve ser exatamente https://t.me/+5511986050195.'
+);
 assert.ok(PROFILE.email.includes('@'), 'E-mail deve ser válido.');
 assert.ok(PROFILE.github.startsWith('https://github.com/'), 'Link do GitHub deve ser URL segura.');
 assert.ok(PROFILE.linkedin.startsWith('https://www.linkedin.com/'), 'Link do LinkedIn deve ser URL segura.');
-console.log(`PASS: Perfil de ${PROFILE.name} validado com sucesso.`);
+console.log(`PASS: Perfil de ${PROFILE.name} e canais WhatsApp/Telegram validados com sucesso.`);
 
 // 2. Validação de Consistência de Redes Sociais em Projetos
 console.log('[2/5] Validando sincronização de links em Projetos com PROFILE...');
@@ -72,4 +108,3 @@ for (const course of COURSES) {
 console.log(`PASS: ${COURSES.length} cursos auditados totalizando ${totalHours}h verificadas.`);
 
 console.log('--- CONSISTÊNCIA DE DADOS APROVADA: ZERO DIVERGÊNCIAS DETECTADAS! ---');
-

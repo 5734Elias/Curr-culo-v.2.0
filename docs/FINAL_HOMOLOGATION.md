@@ -2,8 +2,8 @@
 
 **Data:** 2026-10-28  
 **Repositório:** `https://github.com/5734Elias/Curr-culo-v.2.0`  
-**Pull Request:** `https://github.com/5734Elias/Curr-culo-v.2.0/pull/1`  
-**Branch de Homologação:** `fix/technical-audit-remediation`  
+**Pull Request:** `https://github.com/5734Elias/Curr-culo-v.2.0/pull/2`  
+**Branch de Homologação:** `feat/whatsapp-telegram-contact`  
 **Domínio Gratuito Oficial (Vercel):** `https://curr-culo-v-2-0-8kbn.vercel.app`  
 
 ---
@@ -22,39 +22,37 @@
 | `eslint` / `eslint-config-next` | Linter Estático | `^9` / `16.4.3` |
 | `tsx` | Executor Nativo TypeScript (Testes) | `^4.19.2` |
 
-- **Resultado do `npm audit`:** **`found 0 vulnerabilities`** (todas as 6 vulnerabilidades anteriores foram sanadas).
+- **Resultado do `npm audit`:** **`found 0 vulnerabilities`** (zero vulnerabilidades).
 
 ---
 
-## 2. Publicação no Domínio Gratuito da Vercel e Arquitetura de Contato
+## 2. Publicação no Domínio Gratuito da Vercel e Canais Diretos de Contato (WhatsApp, Telegram e E-mail)
 
 - **Domínio Gratuito Configurado:** [`src/lib/siteConfig.ts`](../Currículo/frontend/src/lib/siteConfig.ts) define `https://curr-culo-v-2-0-8kbn.vercel.app` como domínio canônico padrão para `layout.tsx`, `sitemap.ts`, `robots.ts` e JSON-LD, aceitando `NEXT_PUBLIC_SITE_URL` ou `VERCEL_PROJECT_PRODUCTION_URL` sem necessidade de alterar código quando um domínio próprio for adquirido.
-- **Fluxo de Contato Direto sem Domínio Próprio ([`src/app/contato/page.tsx`](../Currículo/frontend/src/app/contato/page.tsx)):**
-  - Como não há domínio de e-mail próprio verificado no Resend nesta fase, a página `/contato` **não simula envio automático**.
-  - Apresenta aviso explícito de que o aplicativo de e-mail do visitante será aberto, campos opcionais para preparar assunto e mensagem localmente (sem transmitir dados a serviços externos) e o botão principal **"Enviar e-mail"** (`mailto:elias.re_is@hotmail.com?subject=...&body=...`), além dos links diretos para **LinkedIn** (`elias-ribeiro-dos-reis-3b289a43`) e **GitHub** (`5734Elias`).
-- **Preservação do Resend e Upstash Redis para Ativação Futura:**
-  - A rota `/api/contact`, o serviço `src/services/contactService.ts` (que bloqueia remetentes não verificados `@resend.dev` em produção) e o rate limiter `src/lib/rateLimit.ts` (Lua atômico, 5 req/hora, *Fail-Closed* HTTP 503) permanecem implementados, testados e prontos para ativação via variáveis de ambiente (`NEXT_PUBLIC_CONTACT_API_ENABLED="true"`).
+- **Centralização em [`src/data/profile.ts`](../Currículo/frontend/src/data/profile.ts):**
+  - Número de exibição padronizado: `+55 (11) 98605-0195` (`PROFILE.phone`).
+  - Número internacional normalizado: `5511986050195` (`PHONE_INTERNATIONAL`).
+  - **WhatsApp (`WHATSAPP_CONTACT_URL`):** `https://wa.me/5511986050195?text=...` com a mensagem inicial sugerida pré-preenchida: *"Olá, Elias! Vi seu portfólio profissional e gostaria de conversar sobre uma oportunidade ou projeto."*
+  - **Telegram (`TELEGRAM_CONTACT_URL`):** `https://t.me/+5511986050195` (resolução via `tg://resolve?phone=5511986050195`; exige que a configuração de privacidade da conta no Telegram permita localização pelo número de telefone ou substituição futura por `@username` público caso o proprietário prefira).
+- **Interface de Contato ([`src/app/contato/page.tsx`](../Currículo/frontend/src/app/contato/page.tsx)) e Rodapé ([`src/components/layout/Footer.tsx`](../Currículo/frontend/src/components/layout/Footer.tsx)):**
+  - Seção **Canais Diretos de Contato** organizada na hierarquia:
+    1. **WhatsApp — Conversar agora** (`+55 (11) 98605-0195`)
+    2. **Telegram — Enviar mensagem** (`+55 (11) 98605-0195`)
+    3. **E-mail — Preparar e enviar e-mail** (`elias.re_is@hotmail.com`)
+    4. **LinkedIn — Perfil profissional** (`elias-ribeiro-dos-reis-3b289a43`)
+    5. **GitHub — Projetos e repositórios** (`5734Elias`)
+  - Todos os links possuem área mínima de toque (`min-h-[44px]`), foco visível de teclado (`focus-visible:outline-[#00f2ff]`), `aria-label` descritivo e `target="_blank" rel="noopener noreferrer"` para links externos.
+  - Rodapé atualizado com WhatsApp, Telegram, LinkedIn, GitHub e E-mail.
 
 ---
 
 ## 3. Separação das Evidências de Validação
 
 1. **Testes Automatizados (`npm run test` via `npx tsx` — 7 suítes aprovadas):**
-   - `validate-courses.mjs`, `test-security-and-contact.mjs`, `validate-data-consistency.mjs`, `test-seo-and-routes.mjs`, `test-ui-accessibility.mjs`, `test-audit-regressions.mjs` e `test-services-verification.mjs`.
-2. **Testes Reais em Execução (`next start` Production Server):**
+   - `validate-courses.mjs`, `test-security-and-contact.mjs`, `validate-data-consistency.mjs` (incluindo validação de `PROFILE.phone`, `PHONE_INTERNATIONAL`, `WHATSAPP_CONTACT_URL` e `TELEGRAM_CONTACT_URL`), `test-seo-and-routes.mjs`, `test-ui-accessibility.mjs`, `test-audit-regressions.mjs` e `test-services-verification.mjs`.
+2. **Testes Reais em Execução (`next start` Production Server & Sondagem Externa):**
    - Todas as 14 rotas públicas responderam `HTTP 200` com landmark `<main id="main-content">`.
-   - `sitemap.xml` e `robots.txt` gerados com o domínio canônico `https://curr-culo-v-2-0-8kbn.vercel.app`.
-   - Cabeçalhos HTTP verificados: `Content-Security-Policy` (sem `unsafe-eval`), `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` e `Permissions-Policy`.
-   - Rota `POST /api/contact` validada em runtime: `HTTP 503` (*Fail-Closed* sem Redis / sem Resend), `HTTP 400` (payload inválido), `HTTP 200` (honeypot silencioso) e `HTTP 429` (rate limit).
-3. **Inspeções de Código:**
-   - Correção do identificador exibido no card do LinkedIn em `/contato` (`elias-ribeiro-dos-reis-3b289a43` consistente com `PROFILE.linkedin`).
-   - `ThemeToggle.tsx` nativo em React 19 (`useSyncExternalStore` + `MutationObserver` + `localStorage`).
-4. **Pendências Externas / Ações Manuais Opcionais:**
-   - Conexão opcional do Upstash Redis (plano gratuito) no painel da Vercel (`curr-culo-v-2-0-8kbn` > *Storage*).
-   - Desvinculação Git opcional dos dois projetos antigos da Vercel (`curr-culo-v-2-0` e `curr-culo-v-2-0-bx4q`) mediante autorização do proprietário.
-
----
-
-## 4. Recomendação Final
-
-Com a adoção do domínio gratuito `.vercel.app`, o fluxo de contato direto via `mailto:` funcional e transparente, a proteção *Fail-Closed* na API e a eliminação das 6 vulnerabilidades do `npm audit` (`0 vulnerabilities`), **não há bloqueios críticos para publicação**. O Pull Request #1 está **PRONTO PARA REVISÃO FINAL (Ready for Review)** mediante autorização do proprietário.
+   - Verificada no HTML renderizado de `/` (rodapé) e `/contato` a presença dos links de WhatsApp e Telegram.
+   - Sondagem HTTP externa: `wa.me/5511986050195?text=...` redireciona com `HTTP 200` para `api.whatsapp.com/send/?phone=5511986050195&text=...`; `t.me/+5511986050195` responde `HTTP 200` com deep-link `tg://resolve?phone=5511986050195`.
+3. **Pendências Externas / Verificação Manual do Proprietário:**
+   - **Telegram (`https://t.me/+5511986050195`):** Como a resolução por número (`tg://resolve?phone=5511986050195`) depende exclusivamente da configuração de privacidade da conta no aplicativo Telegram (*Configurações → Privacidade e Segurança → Número de Telefone → Quem pode me encontrar pelo meu número: Todos*), requer confirmação manual do proprietário em dispositivo móvel/desktop ou fornecimento de `@username` público caso prefira link por nome de usuário.

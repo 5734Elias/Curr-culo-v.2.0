@@ -332,7 +332,7 @@ export default function ContatoPage() {
             </Card>
           </div>
 
-          {/* Canais Diretos (WhatsApp, Telegram, e-mail, LinkedIn e GitHub) */}
+          {/* Canais Diretos de Contato (WhatsApp, Telegram, E-mail, LinkedIn e GitHub) */}
           <div className="lg:col-span-5 space-y-6">
             <Card hoverEffect={false} className="bg-[#192122] border border-[#3a494b]">
               <CardHeader>
@@ -340,30 +340,32 @@ export default function ContatoPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-[#b9cacb] leading-relaxed">
-                  Você também pode enviar uma mensagem pelo WhatsApp ou Telegram, abrir seu aplicativo de e-mail ou acessar minhas redes profissionais:
+                  Você também pode iniciar uma conversa pelo WhatsApp ou Telegram, abrir seu aplicativo de e-mail ou acessar minhas redes profissionais:
                 </p>
 
                 <div className="space-y-3 font-mono text-xs">
+                  {/* 1. WhatsApp — Conversar agora */}
                   <a
                     href={WHATSAPP_CONTACT_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`Conversar por WhatsApp no número ${PROFILE.phone}`}
-                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                    aria-label={`WhatsApp — Conversar agora no número ${PROFILE.phone}`}
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
                   >
                     <MessageCircle className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
                     <div>
-                      <span className="text-[10px] text-[#849495] block">WHATSAPP — ENVIAR MENSAGEM:</span>
+                      <span className="text-[10px] text-[#849495] block">WHATSAPP — CONVERSAR AGORA:</span>
                       <span className="font-semibold">{PROFILE.phone}</span>
                     </div>
                   </a>
 
+                  {/* 2. Telegram — Enviar mensagem */}
                   <a
                     href={TELEGRAM_CONTACT_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`Conversar por Telegram no número ${PROFILE.phone}`}
-                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                    aria-label={`Telegram — Enviar mensagem para o número ${PROFILE.phone}`}
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
                   >
                     <Send className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
                     <div>
@@ -372,41 +374,47 @@ export default function ContatoPage() {
                     </div>
                   </a>
 
+                  {/* 3. E-mail — Preparar e enviar e-mail */}
                   <a
                     href={`mailto:${PROFILE.email}?subject=${encodeURIComponent(
                       DEFAULT_SUBJECT
                     )}&body=${encodeURIComponent(DEFAULT_BODY_INTRO)}`}
-                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                    aria-label={`E-mail — Preparar e enviar e-mail para ${PROFILE.email}`}
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
                   >
-                    <Mail className="w-5 h-5 text-[#00f2ff] shrink-0" />
+                    <Mail className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
                     <div>
-                      <span className="text-[10px] text-[#849495] block">E-MAIL PROFISSIONAL (ABRIR APP):</span>
+                      <span className="text-[10px] text-[#849495] block">E-MAIL — PREPARAR E ENVIAR E-MAIL:</span>
                       <span className="font-semibold">{PROFILE.email}</span>
                     </div>
                   </a>
 
+                  {/* 4. LinkedIn — Perfil profissional */}
                   <a
                     href={PROFILE.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                    aria-label="LinkedIn — Perfil profissional de Elias Ribeiro dos Reis"
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
                   >
-                    <LinkedinIcon className="w-5 h-5 text-[#00f2ff] shrink-0" />
+                    <LinkedinIcon className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
                     <div>
-                      <span className="text-[10px] text-[#849495] block">LINKEDIN:</span>
+                      <span className="text-[10px] text-[#849495] block">LINKEDIN — PERFIL PROFISSIONAL:</span>
                       <span className="font-semibold">elias-ribeiro-dos-reis-3b289a43</span>
                     </div>
                   </a>
 
+                  {/* 5. GitHub — Projetos e repositórios */}
                   <a
                     href={PROFILE.github}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
+                    aria-label="GitHub — Projetos e repositórios de 5734Elias"
+                    className="flex items-center gap-3 p-3 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] hover:border-[#00f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00f2ff] text-[#dce4e4] transition-colors min-h-[44px]"
                   >
-                    <GithubIcon className="w-5 h-5 text-[#00f2ff] shrink-0" />
+                    <GithubIcon className="w-5 h-5 text-[#00f2ff] shrink-0" aria-hidden="true" />
                     <div>
-                      <span className="text-[10px] text-[#849495] block">GITHUB:</span>
+                      <span className="text-[10px] text-[#849495] block">GITHUB — PROJETOS E REPOSITÓRIOS:</span>
                       <span className="font-semibold">5734Elias</span>
                     </div>
                   </a>
