@@ -45,13 +45,15 @@ Em arquiteturas serverless (Vercel, AWS Lambda, Cloudflare Workers), contadores 
 
 O rate limiter (`src/lib/rateLimit.ts`) adota arquitetura serverless de alta resiliência:
 - **Operação Atômica via Script Lua:** A verificação no Redis (Upstash / Vercel KV) utiliza um script Lua atômico (`EVAL`) que executa `INCR` e define incondicionalmente o `PEXPIRE` na mesma transação atômica. Isso elimina 100% dos riscos de chaves sem TTL ou race conditions em caso de falha de conexão.
-- **Política de Falha Segura em Produção (Fail-Safe / Fail-Closed):**
-  - Em produção (`NODE_ENV === 'production'`), qualquer falha de conectividade com o Redis emite log estruturado de segurança com alerta.
-  - Se `RATE_LIMIT_FAIL_CLOSED="true"`: aciona proteção estrita (Fail-Closed) com HTTP 503/429.
-  - Caso padrão: opera em Modo Degradado Seguro (`redis-degraded-fallback`), reduzindo a cota máxima permitida (máx 2 requisições por instância) para impedir DoS distribuído durante instabilidades da nuvem.
-- **Cadeia de Proxies Confiáveis e Prevenção de Spoofing:**
-  - Extração hierárquica priorizando cabeçalhos assinados pelo provedor: `x-vercel-forwarded-for` (Vercel Edge), `cf-connecting-ip` (Cloudflare) e `x-real-ip`.
-  - Validação estrita de formato IPv4/IPv6 em cada candidato, impedindo injeções de cabeçalhos arbitrários ou spoofing de `x-forwarded-for` por clientes maliciosos.
+- **Política Estrita de Produção (Fail-Closed por Padrão):**
+  - **Ausência de Redis em Produção:** Se as variáveis `UPSTASH_REDIS_REST_URL/TOKEN` ou `KV_REST_API_URL/TOKEN` não estiverem configuradas em ambiente de produção, a rota bloqueia preventivamente por Fail-Closed (HTTP 503 com alerta crítico nos logs). O fallback silencioso para memória em produção é proibido por padrão para evitar brechas em ambiente multinstância serverless.
+  - **Falha de Conectividade do Redis:** Em produção (`NODE_ENV === 'production'`), qualquer timeout ou erro de rede do cluster Redis resulta em bloqueio seguro imediato (`provider: 'fail-closed'`).
+  - **Opt-in Operacional:** Somente se `RATE_LIMIT_ALLOW_DEGRADED_FALLBACK="true"` for configurado expressamente pelo operador, admite-se o modo degradado com cota restritiva (máximo 2 requisições por instância).
+- **Cadeia de Proxies Confiáveis e Mitigação de Spoofing de IP:**
+  - **Vercel Edge:** Prioridade absoluta para `x-vercel-forwarded-for` (gerado e assinado no Edge de entrada da Vercel; não pode ser forjado pelo cliente).
+  - **Cloudflare Edge:** Inspeção de `cf-connecting-ip`.
+  - **Mitigação de Spoofing em X-Forwarded-For:** Em proxies reversos, o cliente injeta valores à esquerda e os proxies de borda anexam o IP real à direita. O algoritmo inspeciona a lista da **direita para a esquerda** (*rightmost hop*), adotando o último hop válido e descartando qualquer IP forjado na cabeça do cabeçalho.
+  - **Validação Sintática Rigorosa:** Verificação de formato IPv4 e IPv6 descarta injeções maliciosas.
 - **Anonimização Criptográfica de IP (LGPD):** O sistema nunca armazena o endereço IP em texto puro. O rate limiter calcula o hash unidirecional `SHA-256(ip + salt)` antes de registrar a chave `ratelimit:contact:<hash>`.
 
 ---

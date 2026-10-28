@@ -107,31 +107,58 @@ assert.strictEqual(
   'Comando Redis deve ser atômico via EVAL com o script Lua.'
 );
 
-// 1.6 Teste de Política Segura para Falha do Redis em Produção (Fail-Safe & Fail-Closed)
+// 1.6 Teste de Política Segura para Produção (Fail-Closed por Padrão)
 const failingRedisFetch = async () => {
   throw new Error('ECONNREFUSED: Redis cluster unreachable');
 };
 
-// Cenário A: Produção com RATE_LIMIT_FAIL_CLOSED="true"
+// Cenário A: Produção sem variáveis de Redis configuradas (Deve falhar por Fail-Closed por padrão)
 process.env.NODE_ENV = 'production';
+delete process.env.UPSTASH_REDIS_REST_URL;
+delete process.env.UPSTASH_REDIS_REST_TOKEN;
+delete process.env.KV_REST_API_URL;
+delete process.env.KV_REST_API_TOKEN;
+delete process.env.RATE_LIMIT_ALLOW_UNCONFIGURED_IN_PROD;
+delete process.env.RATE_LIMIT_ALLOW_DEGRADED_FALLBACK;
+
+const unconfiguredProdResult = await checkRateLimit('prod-unconfigured-client', 5, 60000);
+assert.strictEqual(
+  unconfiguredProdResult.allowed,
+  false,
+  'Em produção sem Redis configurado, a requisição DEVE ser bloqueada por Fail-Closed por padrão.'
+);
+assert.strictEqual(
+  unconfiguredProdResult.provider,
+  'fail-closed',
+  'Provedor deve ser fail-closed quando Redis estiver ausente em produção.'
+);
+
+// Cenário B: Produção com Redis inacessível (Deve acionar Fail-Closed por PADRÃO, sem necessidade de opt-in)
 process.env.UPSTASH_REDIS_REST_URL = 'https://broken-redis.upstash.io';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'broken-token';
-process.env.RATE_LIMIT_FAIL_CLOSED = 'true';
 
-const failClosedResult = await checkRateLimit('prod-failing-client-1', 5, 60000, failingRedisFetch);
-assert.strictEqual(failClosedResult.allowed, false, 'Em modo fail-closed, falha de infraestrutura deve bloquear.');
-assert.strictEqual(failClosedResult.provider, 'fail-closed', 'Provedor deve ser explicitamente fail-closed.');
+const defaultFailClosedResult = await checkRateLimit('prod-failing-client-1', 5, 60000, failingRedisFetch);
+assert.strictEqual(
+  defaultFailClosedResult.allowed,
+  false,
+  'Em produção, falha do Redis DEVE acionar Fail-Closed por padrão.'
+);
+assert.strictEqual(
+  defaultFailClosedResult.provider,
+  'fail-closed',
+  'Provedor padrão em falha deve ser fail-closed.'
+);
 
-// Cenário B: Produção com modo degradado seguro (RATE_LIMIT_FAIL_CLOSED="false")
-process.env.RATE_LIMIT_FAIL_CLOSED = 'false';
+// Cenário C: Produção com modo degradado explicitamente autorizado (RATE_LIMIT_ALLOW_DEGRADED_FALLBACK="true")
+process.env.RATE_LIMIT_ALLOW_DEGRADED_FALLBACK = 'true';
 resetRateLimitStore();
 
 const degradedResult1 = await checkRateLimit('prod-failing-client-2', 5, 60000, failingRedisFetch);
-assert.strictEqual(degradedResult1.allowed, true, '1ª requisição em modo degradado deve ser permitida.');
+assert.strictEqual(degradedResult1.allowed, true, '1ª requisição em modo degradado permitido deve ser aceita.');
 assert.strictEqual(degradedResult1.provider, 'redis-degraded-fallback', 'Provedor deve ser redis-degraded-fallback.');
 
 const degradedResult2 = await checkRateLimit('prod-failing-client-2', 5, 60000, failingRedisFetch);
-assert.strictEqual(degradedResult2.allowed, true, '2ª requisição em modo degradado deve ser permitida.');
+assert.strictEqual(degradedResult2.allowed, true, '2ª requisição em modo degradado permitido deve ser aceita.');
 
 const degradedResult3 = await checkRateLimit('prod-failing-client-2', 5, 60000, failingRedisFetch);
 assert.strictEqual(
@@ -140,11 +167,29 @@ assert.strictEqual(
   '3ª requisição em modo degradado DEVE ser bloqueada (cota estrita de 2 para conter DoS serverless).'
 );
 
+// 1.7 Teste Integrado ao Vivo com Cluster Redis (Executado se houver credenciais reais no ambiente)
+if (process.env.TEST_LIVE_REDIS_URL && process.env.TEST_LIVE_REDIS_TOKEN) {
+  console.log('-> Executando teste integrado ao vivo com cluster Redis remoto...');
+  const liveResult = await checkDistributedRedis(
+    process.env.TEST_LIVE_REDIS_URL,
+    process.env.TEST_LIVE_REDIS_TOKEN,
+    `ratelimit:integration-test:${Date.now()}`,
+    5,
+    10000
+  );
+  assert.strictEqual(liveResult?.allowed, true, 'Cluster Redis ao vivo deve responder com sucesso.');
+  assert.strictEqual(liveResult?.provider, 'upstash-redis', 'Provedor deve ser upstash-redis no teste ao vivo.');
+  console.log('-> Teste integrado ao vivo com Redis APROVADO com sucesso.');
+} else {
+  console.log('-> Testes integrados ao vivo: Ambiente sem cluster Redis ativo provisionado; simulação com mock de API REST atômico validada.');
+}
+
 // Restaurar variáveis de ambiente
 process.env.NODE_ENV = 'test';
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
-delete process.env.RATE_LIMIT_FAIL_CLOSED;
+delete process.env.RATE_LIMIT_ALLOW_DEGRADED_FALLBACK;
+delete process.env.RATE_LIMIT_ALLOW_UNCONFIGURED_IN_PROD;
 resetRateLimitStore();
 
 console.log('PASS (Item 1): Rate Limiter atômico, concorrência, expiração e falha do Redis 100% validados.');

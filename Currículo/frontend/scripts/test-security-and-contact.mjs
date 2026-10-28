@@ -71,6 +71,16 @@ const cfMockHeaders = new Headers({
 });
 assert.strictEqual(extractClientIp(cfMockHeaders), '198.51.100.42', 'Deve priorizar cf-connecting-ip sobre x-forwarded-for.');
 
+// Mitigação de spoofing em X-Forwarded-For: cliente forja na esquerda, proxy confiável anexa na direita
+const spoofedXffHeaders = new Headers({
+  'x-forwarded-for': '1.2.3.4, 198.51.100.55',
+});
+assert.strictEqual(
+  extractClientIp(spoofedXffHeaders),
+  '198.51.100.55',
+  'Em x-forwarded-for puro, deve extrair o rightmost hop anexado pelo proxy em vez do IP forjado pelo cliente.'
+);
+
 // Rejeição de formatos de IP inválidos ou maliciosos
 const maliciousHeaders = new Headers({
   'x-forwarded-for': '<script>alert(1)</script>, 10.0.0.1',
