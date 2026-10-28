@@ -35,6 +35,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
 - **Eliminação de `unsafe-eval` em Produção:** `unsafe-eval` foi totalmente eliminado dos builds de produção, permanecendo condicional apenas em desenvolvimento para suporte ao Webpack HMR.
 - **Redução de Injeção Inline:** Ativação de `script-src-attr 'none'`, bloqueando a execução de atributos HTML de eventos (`onclick`, `onerror`, etc.), reduzindo substancialmente a superfície de ataque XSS.
 - **Isolamento de Objetos e Base:** Adição de `object-src 'none'` e `base-uri 'self'`.
+- **Avaliação de Nonce vs. SSG (Static Site Generation):** O uso de Nonce dinâmico via `middleware.ts` impede a geração estática no Next.js App Router (SSG), pois cada requisição geraria um nonce aleatório não presente nos scripts estáticos pré-renderizados em HTML na CDN da Vercel. Mantém-se `script-src-attr 'none'` e eliminação de `unsafe-eval` como modelo de defesa em profundidade compatível com SSG de altíssima performance.
 
 ---
 
@@ -42,9 +43,15 @@ Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
 
 Em arquiteturas serverless (Vercel, AWS Lambda, Cloudflare Workers), contadores em memória RAM local são voláteis e não são compartilhados entre instâncias.
 
-O rate limiter (`src/lib/rateLimit.ts`) adota arquitetura serverless nativa:
-- **Armazenamento Distribuído Serverless:** Suporte nativo a Upstash Redis / Vercel KV via API REST atômica (`POST /pipeline` com `INCR` e `PTTL`). Funciona em Edge e Node runtimes sem dependências de C nativo.
-- **Fallback Resiliente:** Em ambientes locais de desenvolvimento ou execução de testes de CI sem credenciais de nuvem, o sistema opera automaticamente via fallback em memória seguro sem travar a aplicação.
+O rate limiter (`src/lib/rateLimit.ts`) adota arquitetura serverless de alta resiliência:
+- **Operação Atômica via Script Lua:** A verificação no Redis (Upstash / Vercel KV) utiliza um script Lua atômico (`EVAL`) que executa `INCR` e define incondicionalmente o `PEXPIRE` na mesma transação atômica. Isso elimina 100% dos riscos de chaves sem TTL ou race conditions em caso de falha de conexão.
+- **Política de Falha Segura em Produção (Fail-Safe / Fail-Closed):**
+  - Em produção (`NODE_ENV === 'production'`), qualquer falha de conectividade com o Redis emite log estruturado de segurança com alerta.
+  - Se `RATE_LIMIT_FAIL_CLOSED="true"`: aciona proteção estrita (Fail-Closed) com HTTP 503/429.
+  - Caso padrão: opera em Modo Degradado Seguro (`redis-degraded-fallback`), reduzindo a cota máxima permitida (máx 2 requisições por instância) para impedir DoS distribuído durante instabilidades da nuvem.
+- **Cadeia de Proxies Confiáveis e Prevenção de Spoofing:**
+  - Extração hierárquica priorizando cabeçalhos assinados pelo provedor: `x-vercel-forwarded-for` (Vercel Edge), `cf-connecting-ip` (Cloudflare) e `x-real-ip`.
+  - Validação estrita de formato IPv4/IPv6 em cada candidato, impedindo injeções de cabeçalhos arbitrários ou spoofing de `x-forwarded-for` por clientes maliciosos.
 - **Anonimização Criptográfica de IP (LGPD):** O sistema nunca armazena o endereço IP em texto puro. O rate limiter calcula o hash unidirecional `SHA-256(ip + salt)` antes de registrar a chave `ratelimit:contact:<hash>`.
 
 ---

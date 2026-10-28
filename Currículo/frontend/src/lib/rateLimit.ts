@@ -1,5 +1,11 @@
 import crypto from 'crypto';
 
+export type RateLimitProvider =
+  | 'upstash-redis'
+  | 'memory-fallback'
+  | 'redis-degraded-fallback'
+  | 'fail-closed';
+
 export interface RateLimitRecord {
   count: number;
   resetAt: number;
@@ -9,10 +15,10 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   resetAt: number;
-  provider: 'upstash-redis' | 'memory-fallback';
+  provider: RateLimitProvider;
 }
 
-// Armazenamento em memória para fallback local (desenvolvimento / CI / testes)
+// Armazenamento em memória para fallback local (desenvolvimento / CI / testes / modo degradado)
 const localMemoryStore = new Map<string, RateLimitRecord>();
 
 // Salt efêmero em runtime para anonimização de IP conforme LGPD
@@ -26,21 +32,63 @@ export function resetRateLimitStore(): void {
 }
 
 /**
- * Extrai e sanitiza o endereço IP real da requisição, priorizando cabeçalhos de proxies confiáveis
+ * Validação rigorosa de formato IPv4 ou IPv6 para prevenção de cabeçalhos forjados / injection.
+ */
+export function isValidIp(ip: string): boolean {
+  if (!ip || typeof ip !== 'string') return false;
+  const trimmed = ip.trim();
+
+  // IPv4 padrão (ex: 192.168.1.1 ou 203.0.113.195)
+  const ipv4Regex =
+    /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  if (ipv4Regex.test(trimmed)) return true;
+
+  // IPv6 simplificado / canônico
+  const ipv6Regex =
+    /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$/;
+  return ipv6Regex.test(trimmed);
+}
+
+/**
+ * Extrai e sanitiza o endereço IP real da requisição, priorizando cabeçalhos assinados de proxies confiáveis:
+ * 1. x-vercel-forwarded-for: atribuído diretamente pelo Edge da Vercel (não manipulável pelo cliente na Vercel)
+ * 2. cf-connecting-ip: atribuído pela Cloudflare Edge Network
+ * 3. x-real-ip: atribuído por proxies reversos autoritativos (Nginx, ALB)
+ * 4. x-forwarded-for: inspecionado e sanitizado com validação de formato
  */
 export function extractClientIp(headers: Headers): string {
-  const forwardedFor = headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    const firstIp = forwardedFor.split(',')[0].trim();
-    if (firstIp) return firstIp;
+  // 1. Vercel Edge Proxy confiável
+  const vercelIp = headers.get('x-vercel-forwarded-for');
+  if (vercelIp) {
+    const candidate = vercelIp.split(',')[0].trim();
+    if (isValidIp(candidate)) return candidate;
   }
 
-  const realIp = headers.get('x-real-ip');
-  if (realIp) return realIp.trim();
-
+  // 2. Cloudflare Edge Proxy confiável
   const cfConnectingIp = headers.get('cf-connecting-ip');
-  if (cfConnectingIp) return cfConnectingIp.trim();
+  if (cfConnectingIp && isValidIp(cfConnectingIp.trim())) {
+    return cfConnectingIp.trim();
+  }
 
+  // 3. Proxy reverso direto (X-Real-IP)
+  const realIp = headers.get('x-real-ip');
+  if (realIp && isValidIp(realIp.trim())) {
+    return realIp.trim();
+  }
+
+  // 4. Cadeia padrão X-Forwarded-For
+  const forwardedFor = headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const parts = forwardedFor.split(',').map((p) => p.trim());
+    // Avalia os IPs válidos na lista (da esquerda para a direita, primeiro hop válido)
+    for (const ip of parts) {
+      if (isValidIp(ip)) {
+        return ip;
+      }
+    }
+  }
+
+  // Fallback seguro
   return '127.0.0.1';
 }
 
@@ -52,34 +100,45 @@ export function hashIpForPrivacy(ip: string): string {
 }
 
 /**
- * Executa verificação atômica via REST API de Redis distribuído (Upstash Redis / Vercel KV).
- * Compatível nativamente com múltiplas instâncias serverless e edge runtimes (zero dependências nativas).
+ * Script Lua executado atomicamente no Redis (Upstash / Vercel KV).
+ * Garante incremento e definição incondicional do TTL na mesma operação atômica,
+ * eliminando chaves órfãs ou sem expiração causadas por falhas de rede.
  */
-async function checkDistributedRedis(
+export const ATOMIC_RATE_LIMIT_LUA = `
+local current = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {current, ttl}
+`.trim();
+
+/**
+ * Executa verificação atômica via REST API de Redis distribuído (Upstash Redis / Vercel KV)
+ * utilizando o script Lua de incremento e expiração atômicos.
+ */
+export async function checkDistributedRedis(
   redisUrl: string,
   redisToken: string,
   key: string,
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  fetchFn: typeof fetch = fetch
 ): Promise<RateLimitResult | null> {
   try {
-    const windowSeconds = Math.ceil(windowMs / 1000);
-    // Pipeline atômico via REST: INCR + PTTL (ou EXPIRE se for o primeiro acesso)
-    const pipelineUrl = `${redisUrl.replace(/\/$/, '')}/pipeline`;
-
+    const endpoint = `${redisUrl.replace(/\/$/, '')}/pipeline`;
     const commands = [
-      ['INCR', key],
-      ['PTTL', key],
+      ['EVAL', ATOMIC_RATE_LIMIT_LUA, 1, key, windowMs.toString()],
     ];
 
-    const response = await fetch(pipelineUrl, {
+    const response = await fetchFn(endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${redisToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(commands),
-      // Timeout curto para evitar bloqueio da requisição em caso de lentidão na rede externa
       signal: AbortSignal.timeout(3000),
     });
 
@@ -87,25 +146,19 @@ async function checkDistributedRedis(
       return null;
     }
 
-    const results = await response.json();
-    const count = typeof results[0]?.result === 'number' ? results[0].result : 1;
-    let ttlMs = typeof results[1]?.result === 'number' ? results[1].result : -1;
+    const payload = await response.json();
+    // Upstash REST pipeline retorna array de resultados: [{ result: [count, ttl] }]
+    // ou em caso de execução direta: { result: [count, ttl] }
+    const evalResult = Array.isArray(payload) ? payload[0]?.result : payload?.result;
 
-    // Se a chave é nova (sem TTL ou TTL negativo), define expiração
-    if (count === 1 || ttlMs < 0) {
-      await fetch(`${redisUrl.replace(/\/$/, '')}/expire`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${redisToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([key, windowSeconds]),
-        signal: AbortSignal.timeout(2000),
-      }).catch(() => {});
-      ttlMs = windowMs;
+    if (!Array.isArray(evalResult) || evalResult.length < 2) {
+      return null;
     }
 
-    const resetAt = Date.now() + (ttlMs > 0 ? ttlMs : windowMs);
+    const count = Number(evalResult[0]) || 1;
+    const ttlMs = Number(evalResult[1]) > 0 ? Number(evalResult[1]) : windowMs;
+
+    const resetAt = Date.now() + ttlMs;
     const allowed = count <= maxRequests;
     const remaining = Math.max(0, maxRequests - count);
 
@@ -115,19 +168,22 @@ async function checkDistributedRedis(
       resetAt,
       provider: 'upstash-redis',
     };
-  } catch {
-    // Em caso de falha de conexão com o Redis externo, permite fallback resiliente
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[SECURITY][RATE_LIMIT] Falha ao comunicar com Redis distribuído:', error);
+    }
     return null;
   }
 }
 
 /**
- * Fallback em memória para ambientes sem Redis configurado (Dev local / CI)
+ * Fallback em memória para ambientes locais ou modo degradado
  */
-function checkMemoryFallback(
+export function checkMemoryFallback(
   key: string,
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  provider: RateLimitProvider = 'memory-fallback'
 ): RateLimitResult {
   const now = Date.now();
 
@@ -150,9 +206,9 @@ function checkMemoryFallback(
     localMemoryStore.set(key, newRecord);
     return {
       allowed: true,
-      remaining: maxRequests - 1,
+      remaining: Math.max(0, maxRequests - 1),
       resetAt: newRecord.resetAt,
-      provider: 'memory-fallback',
+      provider,
     };
   }
 
@@ -161,7 +217,7 @@ function checkMemoryFallback(
       allowed: false,
       remaining: 0,
       resetAt: current.resetAt,
-      provider: 'memory-fallback',
+      provider,
     };
   }
 
@@ -170,29 +226,31 @@ function checkMemoryFallback(
 
   return {
     allowed: true,
-    remaining: maxRequests - current.count,
+    remaining: Math.max(0, maxRequests - current.count),
     resetAt: current.resetAt,
-    provider: 'memory-fallback',
+    provider,
   };
 }
 
 /**
  * Verifica e aplica rate limiting por IP anonimizado.
- * Em ambientes serverless em produção com Upstash/KV configurado, persiste de forma compartilhada.
- * Caso contrário, utiliza fallback em memória com segurança.
  *
- * @param hashedIp Hash do IP do cliente
- * @param maxRequests Máximo de requisições permitidas na janela (padrão: 5)
- * @param windowMs Janela de tempo em milissegundos (padrão: 1 hora)
+ * Política de Alta Disponibilidade e Segurança:
+ * 1. Em ambientes com Redis configurado (Upstash/KV), executa script Lua atômico.
+ * 2. Em caso de falha de conexão com Redis em produção (NODE_ENV=production):
+ *    - Se RATE_LIMIT_FAIL_CLOSED="true": aciona Fail-Closed e bloqueia preventivamente.
+ *    - Caso padrão: aciona Modo Degradado Seguro ('redis-degraded-fallback') com limite
+ *      estrito reduzido (máx 2 reqs) para conter DoS entre múltiplas instâncias serverless.
+ * 3. Em desenvolvimento / testes: opera em memória de forma transparente.
  */
 export async function checkRateLimit(
   hashedIp: string,
   maxRequests = 5,
-  windowMs = 60 * 60 * 1000
+  windowMs = 60 * 60 * 1000,
+  injectedFetch?: typeof fetch
 ): Promise<RateLimitResult> {
   const rateLimitKey = `ratelimit:contact:${hashedIp}`;
 
-  // Credenciais de Redis REST distribuído (Upstash Redis ou Vercel KV)
   const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
@@ -202,14 +260,39 @@ export async function checkRateLimit(
       redisToken,
       rateLimitKey,
       maxRequests,
-      windowMs
+      windowMs,
+      injectedFetch
     );
 
     if (distributedResult) {
       return distributedResult;
     }
+
+    // Tratamento de falha do Redis em produção
+    if (process.env.NODE_ENV === 'production') {
+      const isFailClosed = process.env.RATE_LIMIT_FAIL_CLOSED === 'true';
+
+      console.error('[SECURITY][RATE_LIMIT] Indisponibilidade de Redis em produção. Aplicando política de segurança.', {
+        key: rateLimitKey,
+        isFailClosed,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (isFailClosed) {
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: Date.now() + 60 * 1000,
+          provider: 'fail-closed',
+        };
+      }
+
+      // Modo degradado em produção: cota restritiva reduzida
+      const degradedMax = Math.min(2, maxRequests);
+      return checkMemoryFallback(rateLimitKey, degradedMax, windowMs, 'redis-degraded-fallback');
+    }
   }
 
   // Fallback in-memory para dev / CI
-  return checkMemoryFallback(rateLimitKey, maxRequests, windowMs);
+  return checkMemoryFallback(rateLimitKey, maxRequests, windowMs, 'memory-fallback');
 }

@@ -56,11 +56,31 @@ console.log('PASS: Todas as regras de validação do schema e limites máximos f
 
 // 2. Teste de Extração e Anonimização de IP
 console.log('[2/4] Testando extração e hash de IP...');
-const mockHeaders = new Headers({
-  'x-forwarded-for': '203.0.113.195, 70.41.3.18, 150.172.238.178',
+// Priorização de proxy confiável Vercel sobre cabeçalho spoofed
+const vercelMockHeaders = new Headers({
+  'x-forwarded-for': '1.1.1.1', // Possível spoofing de cliente
+  'x-vercel-forwarded-for': '203.0.113.195, 70.41.3.18',
 });
-const extractedIp = extractClientIp(mockHeaders);
-assert.strictEqual(extractedIp, '203.0.113.195', 'Deve extrair o primeiro IP da lista de proxy.');
+const vercelIp = extractClientIp(vercelMockHeaders);
+assert.strictEqual(vercelIp, '203.0.113.195', 'Deve priorizar x-vercel-forwarded-for da infraestrutura sobre x-forwarded-for não confiável.');
+
+// Priorização de Cloudflare cf-connecting-ip
+const cfMockHeaders = new Headers({
+  'x-forwarded-for': '1.1.1.1',
+  'cf-connecting-ip': '198.51.100.42',
+});
+assert.strictEqual(extractClientIp(cfMockHeaders), '198.51.100.42', 'Deve priorizar cf-connecting-ip sobre x-forwarded-for.');
+
+// Rejeição de formatos de IP inválidos ou maliciosos
+const maliciousHeaders = new Headers({
+  'x-forwarded-for': '<script>alert(1)</script>, 10.0.0.1',
+});
+assert.strictEqual(extractClientIp(maliciousHeaders), '10.0.0.1', 'Deve ignorar entradas maliciosas e pegar o próximo IP válido.');
+
+const invalidHeaders = new Headers({
+  'x-forwarded-for': 'invalid-payload-string',
+});
+assert.strictEqual(extractClientIp(invalidHeaders), '127.0.0.1', 'Deve recorrer a fallback seguro se nenhum IP for válido.');
 
 const hash1 = hashIpForPrivacy('203.0.113.195');
 const hash2 = hashIpForPrivacy('203.0.113.195');

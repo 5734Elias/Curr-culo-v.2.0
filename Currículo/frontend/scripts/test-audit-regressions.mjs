@@ -4,7 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ContactPayloadSchema } from '../src/schemas/content.ts';
-import { checkRateLimit, resetRateLimitStore } from '../src/lib/rateLimit.ts';
+import {
+  checkRateLimit,
+  resetRateLimitStore,
+  ATOMIC_RATE_LIMIT_LUA,
+  checkDistributedRedis,
+} from '../src/lib/rateLimit.ts';
 import { sendContactEmail } from '../src/services/contactService.ts';
 import { calculateDuration, getCurrentYearMonth } from '../src/lib/dateUtils.ts';
 import { getExperiences } from '../src/data/experiences.ts';
@@ -17,13 +22,20 @@ console.log('--- TEST SUITE: REGRESSION SUITE FOR TECHNICAL AUDIT FIXES ---');
 console.log('================================================================');
 
 // ----------------------------------------------------------------------------
-// [1/7] ITEM 1: RATE LIMITER SERVERLESS-COMPATIBLE
+// [1/7] ITEM 1: RATE LIMITER ATÔMICO COM SCRIPT LUA, CONCORRÊNCIA, EXPIRAÇÃO E FALHA
 // ----------------------------------------------------------------------------
-console.log('\n[1/7] Testando Rate Limiter compatível com Serverless e Fallback...');
+console.log('\n[1/7] Testando Rate Limiter atômico, concorrência, expiração e falha do Redis...');
 resetRateLimitStore();
 
+// 1.1 Teste de Script Lua Atômico
+assert.ok(
+  ATOMIC_RATE_LIMIT_LUA.includes("redis.call('INCR', KEYS[1])") &&
+    ATOMIC_RATE_LIMIT_LUA.includes("redis.call('PEXPIRE', KEYS[1], ARGV[1])"),
+  'Script Lua deve executar INCR e PEXPIRE atomicamente na mesma instrução.'
+);
+
+// 1.2 Teste Sequencial Básico
 const clientHash = 'regression-serverless-client';
-// Verifica se a função é assíncrona (Promise) para chamadas a Redis REST
 const check1 = await checkRateLimit(clientHash, 3, 5000);
 assert.strictEqual(check1.allowed, true, '1ª requisição deve ser permitida.');
 assert.strictEqual(check1.remaining, 2, 'Restante deve ser 2.');
@@ -39,7 +51,103 @@ assert.strictEqual(check4.allowed, false, '4ª requisição deve ser BLOQUEADA (
 assert.strictEqual(check4.remaining, 0, 'Restante deve ser 0.');
 assert.ok(check4.resetAt > Date.now(), 'resetAt deve ser timestamp futuro.');
 
-console.log('PASS (Item 1): Rate Limiter assíncrono opera perfeitamente com fallback resiliente.');
+// 1.3 Teste de Concorrência Real (Requisições Simultâneas via Promise.all)
+resetRateLimitStore();
+const concurrentHash = 'concurrent-client-hash';
+const concurrentRequests = Array.from({ length: 6 }, () =>
+  checkRateLimit(concurrentHash, 3, 5000)
+);
+const concurrentResults = await Promise.all(concurrentRequests);
+const allowedCount = concurrentResults.filter((r) => r.allowed).length;
+const blockedCount = concurrentResults.filter((r) => !r.allowed).length;
+assert.strictEqual(allowedCount, 3, 'Exatamente 3 requisições concorrentes devem ser permitidas para limite 3.');
+assert.strictEqual(blockedCount, 3, 'Exatamente 3 requisições concorrentes excedentes devem ser bloqueadas.');
+
+// 1.4 Teste de Expiração Real da Janela (TTL Reset)
+resetRateLimitStore();
+const expiringHash = 'expiring-client-hash';
+const expCheck1 = await checkRateLimit(expiringHash, 1, 60); // Janela curta de 60ms
+assert.strictEqual(expCheck1.allowed, true, '1ª requisição na janela curta deve ser permitida.');
+const expCheck2 = await checkRateLimit(expiringHash, 1, 60);
+assert.strictEqual(expCheck2.allowed, false, '2ª requisição imediata deve ser bloqueada.');
+
+// Aguardar a expiração do TTL (80ms > 60ms)
+await new Promise((resolve) => setTimeout(resolve, 80));
+const expCheckAfter = await checkRateLimit(expiringHash, 1, 60);
+assert.strictEqual(
+  expCheckAfter.allowed,
+  true,
+  'Após a expiração do TTL da janela, a nova requisição deve ser permitida.'
+);
+
+// 1.5 Teste de Execução Atômica Distribuída do Redis (com Mock de API REST)
+let capturedRedisCommand = null;
+const mockRedisFetch = async (url, options) => {
+  capturedRedisCommand = JSON.parse(options.body);
+  return {
+    ok: true,
+    json: async () => [{ result: [2, 58000] }], // count = 2, ttl = 58s
+  };
+};
+
+const distributedResult = await checkDistributedRedis(
+  'https://mock-redis.upstash.io',
+  'mock-token',
+  'ratelimit:test',
+  5,
+  60000,
+  mockRedisFetch
+);
+assert.strictEqual(distributedResult?.allowed, true, 'Mock do Redis deve permitir requisição dentro da cota.');
+assert.strictEqual(distributedResult?.remaining, 3, 'Restante deve ser 5 - 2 = 3.');
+assert.strictEqual(distributedResult?.provider, 'upstash-redis', 'Provedor deve ser upstash-redis.');
+assert.strictEqual(
+  capturedRedisCommand[0][0],
+  'EVAL',
+  'Comando Redis deve ser atômico via EVAL com o script Lua.'
+);
+
+// 1.6 Teste de Política Segura para Falha do Redis em Produção (Fail-Safe & Fail-Closed)
+const failingRedisFetch = async () => {
+  throw new Error('ECONNREFUSED: Redis cluster unreachable');
+};
+
+// Cenário A: Produção com RATE_LIMIT_FAIL_CLOSED="true"
+process.env.NODE_ENV = 'production';
+process.env.UPSTASH_REDIS_REST_URL = 'https://broken-redis.upstash.io';
+process.env.UPSTASH_REDIS_REST_TOKEN = 'broken-token';
+process.env.RATE_LIMIT_FAIL_CLOSED = 'true';
+
+const failClosedResult = await checkRateLimit('prod-failing-client-1', 5, 60000, failingRedisFetch);
+assert.strictEqual(failClosedResult.allowed, false, 'Em modo fail-closed, falha de infraestrutura deve bloquear.');
+assert.strictEqual(failClosedResult.provider, 'fail-closed', 'Provedor deve ser explicitamente fail-closed.');
+
+// Cenário B: Produção com modo degradado seguro (RATE_LIMIT_FAIL_CLOSED="false")
+process.env.RATE_LIMIT_FAIL_CLOSED = 'false';
+resetRateLimitStore();
+
+const degradedResult1 = await checkRateLimit('prod-failing-client-2', 5, 60000, failingRedisFetch);
+assert.strictEqual(degradedResult1.allowed, true, '1ª requisição em modo degradado deve ser permitida.');
+assert.strictEqual(degradedResult1.provider, 'redis-degraded-fallback', 'Provedor deve ser redis-degraded-fallback.');
+
+const degradedResult2 = await checkRateLimit('prod-failing-client-2', 5, 60000, failingRedisFetch);
+assert.strictEqual(degradedResult2.allowed, true, '2ª requisição em modo degradado deve ser permitida.');
+
+const degradedResult3 = await checkRateLimit('prod-failing-client-2', 5, 60000, failingRedisFetch);
+assert.strictEqual(
+  degradedResult3.allowed,
+  false,
+  '3ª requisição em modo degradado DEVE ser bloqueada (cota estrita de 2 para conter DoS serverless).'
+);
+
+// Restaurar variáveis de ambiente
+process.env.NODE_ENV = 'test';
+delete process.env.UPSTASH_REDIS_REST_URL;
+delete process.env.UPSTASH_REDIS_REST_TOKEN;
+delete process.env.RATE_LIMIT_FAIL_CLOSED;
+resetRateLimitStore();
+
+console.log('PASS (Item 1): Rate Limiter atômico, concorrência, expiração e falha do Redis 100% validados.');
 
 // ----------------------------------------------------------------------------
 // [2/7] ITEM 2: CONTENT SECURITY POLICY (CSP) SEM 'unsafe-eval' EM PRODUÇÃO

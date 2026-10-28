@@ -12,16 +12,19 @@ export async function POST(req: NextRequest) {
     // 2. Rate Limiting Serverless (Máximo 5 requisições por hora por IP)
     const rateCheck = await checkRateLimit(hashedIp, 5, 60 * 60 * 1000);
     if (!rateCheck.allowed) {
+      const isFailClosed = rateCheck.provider === 'fail-closed';
       return NextResponse.json(
         {
           success: false,
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: 'Limite de mensagens excedido. Por favor, aguarde antes de tentar novamente.',
+          code: isFailClosed ? 'SERVICE_UNAVAILABLE' : 'RATE_LIMIT_EXCEEDED',
+          message: isFailClosed
+            ? 'Serviço temporariamente indisponível para proteção do sistema. Tente novamente em instantes.'
+            : 'Limite de mensagens excedido. Por favor, aguarde antes de tentar novamente.',
         },
         {
-          status: 429,
+          status: isFailClosed ? 503 : 429,
           headers: {
-            'Retry-After': Math.ceil((rateCheck.resetAt - Date.now()) / 1000).toString(),
+            'Retry-After': Math.max(1, Math.ceil((rateCheck.resetAt - Date.now()) / 1000)).toString(),
           },
         }
       );
