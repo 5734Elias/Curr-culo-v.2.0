@@ -7,7 +7,7 @@
 [![React 19](https://img.shields.io/badge/React-19.2-blue?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-4.x-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
-[![WCAG 2.2 AA](https://img.shields.io/badge/Accessibility-WCAG%202.2%20AA-success)](#acessibilidade)
+[![WCAG 2.2 Aligned](https://img.shields.io/badge/Accessibility-WCAG%202.2%20Aligned-blue)](#acessibilidade)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
@@ -21,7 +21,7 @@ Este projeto é a evolução do currículo digital para uma aplicação web mode
 - **Segurança Reforçada:** Cabeçalhos HTTP avançados (CSP estrita, HSTS, X-Frame-Options DENY) e conformidade com OWASP.
 - **Formulário de Contato Anti-Spam & LGPD:** Proteção com honeypot, rate limiting anonimizado via SHA-256 e eliminação de falso sucesso (integração real com Resend + fallback para e-mail direto).
 - **SEO Técnico & Dados Estruturados:** JSON-LD em `@graph` (`Person`, `WebSite`, `BreadcrumbList`, `TechArticle`), sitemap canônico e OpenGraph completo.
-- **Acessibilidade Universal (WCAG 2.2 AA):** Suporte nativo a `prefers-reduced-motion`, foco visível para teclado e alvos de toque calibrados para dispositivos móveis (mínimo 44px).
+- **Acessibilidade Digital (Práticas WCAG 2.2):** Suporte nativo a `prefers-reduced-motion`, foco visível para teclado, skip-link e alvos de toque calibrados para dispositivos móveis (mínimo 44px) verificados por testes automatizados.
 - **QA Automatizado & CI/CD:** Suíte quíntupla de testes cobrindo dados, segurança, consistência de fontes únicas, SEO e acessibilidade, integrada ao GitHub Actions.
 
 ---
@@ -126,7 +126,7 @@ A suíte `npm run test` valida:
 2. **Segurança & Contato:** Schemas Zod, Rate Limiter e anonimização de IP por SHA-256.
 3. **Consistência de Fonte Única:** Sincronização entre `PROFILE`, `PROJECTS` e rotas.
 4. **Auditoria de SEO:** Conformidade de robots.txt, sitemap.xml e URLs canônicas.
-5. **Acessibilidade:** Diretrizes WCAG 2.2 AA e dimensões de toque para mobile.
+5. **Acessibilidade Digital:** Verificações automatizadas de alinhamento com WCAG 2.2 (alvos de toque >= 44px, skip link, controles de foco e redução de movimento).
 
 ---
 

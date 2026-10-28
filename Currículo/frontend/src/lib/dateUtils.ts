@@ -19,6 +19,16 @@ const MONTHS_PT_BR = [
 ];
 
 /**
+ * Retorna o ano e mês atuais no formato 'YYYY-MM' de forma dinâmica
+ */
+export function getCurrentYearMonth(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+/**
  * Converte 'YYYY-MM' para formato legível 'Mês/AAAA'
  */
 export function formatMonthYear(yearMonth: string): string {
@@ -35,21 +45,24 @@ export function formatMonthYear(yearMonth: string): string {
 
 /**
  * Calcula a duração em anos e meses entre duas datas 'YYYY-MM'.
- * Se isCurrent for true, calcula até a data de referência atual (Outubro/2026).
+ * Se isCurrent for true (ou sem endDate), calcula dinamicamente até a data corrente.
+ * Aceita opcionalmente currentReference para testes determinísticos ou revalidação com data específica.
  */
 export function calculateDuration(
   startDateStr: string,
   endDateStr?: string,
   isCurrent?: boolean,
-  currentReference: string = '2026-10'
+  currentReference?: string
 ): { years: number; months: number; label: string } {
   const [startYear, startMonth] = startDateStr.split('-').map(Number);
   
   let targetYear: number;
   let targetMonth: number;
 
+  const reference = currentReference || getCurrentYearMonth();
+
   if (isCurrent || !endDateStr) {
-    [targetYear, targetMonth] = currentReference.split('-').map(Number);
+    [targetYear, targetMonth] = reference.split('-').map(Number);
   } else {
     [targetYear, targetMonth] = endDateStr.split('-').map(Number);
   }
@@ -80,10 +93,11 @@ export function calculateDuration(
 export function formatExperiencePeriod(
   startDateStr: string,
   endDateStr?: string,
-  isCurrent?: boolean
+  isCurrent?: boolean,
+  currentReference?: string
 ): string {
   const startFormatted = formatMonthYear(startDateStr);
-  const { label } = calculateDuration(startDateStr, endDateStr, isCurrent);
+  const { label } = calculateDuration(startDateStr, endDateStr, isCurrent, currentReference);
 
   if (isCurrent) {
     return `${startFormatted} – Presente (${label})`;
@@ -92,4 +106,3 @@ export function formatExperiencePeriod(
   const endFormatted = endDateStr ? formatMonthYear(endDateStr) : '';
   return `${startFormatted} – ${endFormatted} (${label})`;
 }
-

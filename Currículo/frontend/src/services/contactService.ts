@@ -21,9 +21,11 @@ export async function sendContactEmail(payload: ContactMessage): Promise<SendMes
   const apiKey = process.env.RESEND_API_KEY;
   const destinationEmail = process.env.CONTACT_DESTINATION_EMAIL || 'elias.re_is@hotmail.com';
   const fromEmail = process.env.CONTACT_FROM_EMAIL || 'portfolio@resend.dev';
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  // Modo de Teste ou Mock explícito para ambientes de desenvolvimento / CI
-  if (process.env.NODE_ENV === 'test' || process.env.MOCK_EMAIL_SERVICE === 'true') {
+  // Modo de Teste ou Mock explícito EXCLUSIVO para ambientes de desenvolvimento / CI.
+  // Em produção, é expressamente proibido simular sucesso via mock.
+  if (!isProduction && (process.env.NODE_ENV === 'test' || process.env.MOCK_EMAIL_SERVICE === 'true')) {
     return {
       success: true,
       messageId: `mock-msg-${Date.now()}`,

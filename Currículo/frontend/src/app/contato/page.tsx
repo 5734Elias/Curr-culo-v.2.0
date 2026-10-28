@@ -175,6 +175,7 @@ export default function ContatoPage() {
                         name="name"
                         type="text"
                         required
+                        maxLength={100}
                         value={formData.name || ''}
                         onChange={handleChange}
                         className="w-full px-3 py-2 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] text-xs text-[#dce4e4] focus:outline-none focus:border-[#00f2ff]"
@@ -193,6 +194,7 @@ export default function ContatoPage() {
                         name="email"
                         type="email"
                         required
+                        maxLength={254}
                         value={formData.email || ''}
                         onChange={handleChange}
                         className="w-full px-3 py-2 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] text-xs text-[#dce4e4] focus:outline-none focus:border-[#00f2ff]"
@@ -211,6 +213,7 @@ export default function ContatoPage() {
                         name="subject"
                         type="text"
                         required
+                        maxLength={150}
                         value={formData.subject || ''}
                         onChange={handleChange}
                         className="w-full px-3 py-2 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] text-xs text-[#dce4e4] focus:outline-none focus:border-[#00f2ff]"
@@ -229,6 +232,7 @@ export default function ContatoPage() {
                         name="message"
                         rows={5}
                         required
+                        maxLength={2000}
                         value={formData.message || ''}
                         onChange={handleChange}
                         className="w-full px-3 py-2 rounded-[0.25rem] bg-[#151d1e] border border-[#3a494b] text-xs text-[#dce4e4] focus:outline-none focus:border-[#00f2ff] resize-y"
