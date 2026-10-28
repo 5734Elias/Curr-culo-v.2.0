@@ -1,4 +1,4 @@
-# Guia de Publicação, Operação & Deploy (Vercel & CI/CD)
+# Guia de Publicação, Operação & Plano de Domínio Futuro (Vercel & CI/CD)
 
 ---
 
@@ -14,76 +14,62 @@ A cada `git push` ou atualização de Pull Request para `main`, o workflow [`.gi
    ├── 1. Checkout do Repositório (actions/checkout@v4)
    ├── 2. Setup Node.js v20 com cache npm (Currículo/frontend/package-lock.json)
    ├── 3. npm ci (Instalação limpa e determinística)
-   ├── 4. npm run lint (ESLint 9 + eslint-config-next 16.3.0)
+   ├── 4. npm run lint (ESLint 9 + eslint-config-next 16.4.3)
    ├── 5. npm run typecheck (TypeScript 5 tsc --noEmit)
    ├── 6. npm run test (7 baterias de testes executadas via npx tsx)
-   └── 7. npm run build (Next.js 16.3.0 build --webpack)
+   └── 7. npm run build (Next.js 16.4.3 build --webpack)
 ```
 
-Qualquer falha de tipagem, teste, lint ou build bloqueia o pipeline antes da integração na `main`.
-
 ---
 
-## 2. Topologia de Projetos na Vercel
+## 2. Publicação Atual no Domínio Gratuito da Vercel (`.vercel.app`)
 
-### 2.1 Projeto Oficial (Preservado e Ativo)
-- **Nome do Projeto:** `curr-culo-v-2-0-8kbn`
-- **Project ID:** `prj_zASS41DERn6OMe5xzoSJ7P4hIxQW`
+### 2.1 Projeto Oficial
+- **Nome do Projeto:** `curr-culo-v-2-0-8kbn` (`prj_zASS41DERn6OMe5xzoSJ7P4hIxQW`)
+- **Domínio Gratuito Padrão:** `https://curr-culo-v-2-0-8kbn.vercel.app`
 - **Root Directory:** `Currículo/frontend`
-- **Framework Preset:** Next.js (`16.3.0`)
-- **Build Command:** `npm run build`
-- **Install Command:** `npm ci`
+- **Resolução Automática de URLs Canônicas ([`src/lib/siteConfig.ts`](../Currículo/frontend/src/lib/siteConfig.ts)):**
+  - `layout.tsx`, `sitemap.ts`, `robots.ts` e `projetos/[slug]/page.tsx` utilizam `getSiteUrl()`, que resolve automaticamente para `NEXT_PUBLIC_SITE_URL`, `VERCEL_PROJECT_PRODUCTION_URL` ou `https://curr-culo-v-2-0-8kbn.vercel.app` com HTTPS forçado (`Strict-Transport-Security`).
+- **Fluxo de Contato Atual (Sem Domínio Próprio de E-mail):**
+  - Enquanto `NEXT_PUBLIC_CONTACT_API_ENABLED` permanece `"false"` (padrão), a página `/contato` opera em modo direto: exibe o botão principal **"Enviar e-mail"** (`mailto:elias.re_is@hotmail.com`) que abre o aplicativo de e-mail do visitante com assunto e mensagem preparados, acompanhado dos links diretos para LinkedIn e GitHub, sem transmitir dados para servidores externos nem utilizar remetentes `@resend.dev` não verificados.
 
-### 2.2 Projetos Legados Identificados (Não Excluir sem Autorização)
-Foram identificados dois projetos anteriores vinculados ao mesmo repositório GitHub:
-1. `curr-culo-v-2-0` (`prj_SK5jGCarJjKsFCZo53gkWyff6pnV`) — *Root Directory* configurado na raiz `.` (falha ao buscar `package.json`).
-2. `curr-culo-v-2-0-bx4q` (`prj_kmnjQYMtWE2pUnLHvibfuBKss2cm`) — *Root Directory* configurado na raiz `.` (falha ao buscar `package.json`).
+### 2.2 Configuração do Upstash Redis (Plano Gratuito no Vercel Marketplace)
+1. Acesse o painel da [Vercel](https://vercel.com/dashboard) > projeto **`curr-culo-v-2-0-8kbn`**.
+2. Abra a aba **Storage** > **Create Database** > selecione **Upstash for Redis** e escolha o plano **Free** (sem custo).
+3. Conecte o banco ao projeto marcando os escopos **Production** e **Preview** (injeta `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` ou `KV_REST_API_URL` e `KV_REST_API_TOKEN`).
+4. Em **Settings** > **Environment Variables**, adicione opcionalmente `RATE_LIMIT_SALT` (string aleatória de 32+ caracteres).
 
-#### Procedimento Seguro para Desvinculação Git dos Projetos Legados (Mediante Autorização do Proprietário)
-> **Importante:** Não utilize `exit 0` em *Ignored Build Step* para mascarar falhas de build nem exclua os projetos sem antes auditar domínios anexados.
-
-1. Acesse o painel da [Vercel](https://vercel.com/dashboard) e abra cada projeto legado (`curr-culo-v-2-0` e `curr-culo-v-2-0-bx4q`).
-2. Vá em **Settings** > **Domains** e confirme se não há nenhum domínio customizado ativo vinculado a eles que deva ser movido para `curr-culo-v-2-0-8kbn`.
-3. Vá em **Settings** > **Environment Variables** e verifique se existe alguma credencial que precise ser copiada para o projeto oficial.
-4. Após confirmar que não há dependências ativas, acesse **Settings** > **Git** > seção **Connected Git Repository** e clique em **Disconnect**. Isso interrompe os deployments duplicados nos Pull Requests mantendo o histórico preservado.
+### 2.3 Projetos Legados na Vercel (`curr-culo-v-2-0` e `curr-culo-v-2-0-bx4q`)
+- Mantidos sem exclusão automática. Para interromper os checks de build duplicados nos Pull Requests, após autorização do proprietário: acesse cada projeto legado > confirme em **Settings > Domains** que não há domínio ativo > vá em **Settings > Git > Connected Git Repository** > clique em **Disconnect**.
 
 ---
 
-## 3. Configuração Obrigatória de Serviços Externos na Vercel
+## 3. Plano Futuro para Ativação de Domínio Próprio e Envio Automático (Resend)
 
-Por segurança (*Fail-Closed* por padrão em produção), a rota `POST /api/contact` retorna **HTTP 503 (`SERVICE_UNAVAILABLE`)** enquanto o Redis distribuído e o serviço de e-mail Resend não estiverem configurados no projeto oficial `curr-culo-v-2-0-8kbn`.
+A arquitetura em [`src/lib/siteConfig.ts`](../Currículo/frontend/src/lib/siteConfig.ts), [`src/services/contactService.ts`](../Currículo/frontend/src/services/contactService.ts) e [`src/app/api/contact/route.ts`](../Currículo/frontend/src/app/api/contact/route.ts) foi preparada para **evitar retrabalho de código** quando um domínio próprio for adquirido:
 
-### 3.1 Provisionamento e Conexão do Upstash Redis
-1. No painel da Vercel, abra o projeto oficial **`curr-culo-v-2-0-8kbn`**.
-2. No menu superior, clique na aba **Storage** > botão **Create Database** (ou **Connect Store**).
-3. Selecione **Upstash** > **Upstash for Redis** (Serverless Redis) no Vercel Marketplace e siga o fluxo de criação na região mais próxima (ex.: `gru1` São Paulo ou `iad1` US East).
-4. Ao conectar o banco ao projeto `curr-culo-v-2-0-8kbn`, marque obrigatoriamente os ambientes **Production** e **Preview**.
-5. Vá em **Settings** > **Environment Variables** e confirme que as variáveis foram injetadas (sem expor seus valores):
-   - `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` (ou `KV_REST_API_URL` e `KV_REST_API_TOKEN`).
-6. Adicione também uma variável `RATE_LIMIT_SALT` (string aleatória de 32+ caracteres hexadecimais) nos escopos **Production** e **Preview** para anonimização consistente de IP (LGPD).
-
-### 3.2 Configuração do Resend e Verificação de Domínio DNS
-> **Atenção Crítica para Produção:** O remetente padrão `portfolio@resend.dev` (ou `onboarding@resend.dev`) é restrito pelo Resend exclusivamente para testes destinados ao próprio e-mail do titular da conta Resend. Em produção, para receber mensagens e usar `CONTACT_DESTINATION_EMAIL` livremente, é necessário validar um domínio próprio no Resend.
-
-1. Acesse o painel do [Resend](https://resend.com/domains) e clique em **Add Domain** (ex.: `eliasreis.dev` ou subdomínio `mail.seudominio.com.br`).
-2. Adicione no provedor DNS do seu domínio os registros fornecidos pelo Resend:
-   - **DKIM (`TXT`):** `resend._domainkey` com a chave pública gerada pelo Resend.
-   - **SPF (`TXT` e `MX`):** no subdomínio de envio (`send`), autorizando a infraestrutura da Amazon SES/Resend.
-   - **DMARC (`TXT` recomendado):** `_dmarc` com valor `v=DMARC1; p=none;`.
-3. Clique em **Verify DNS Records** no painel do Resend até que o status mude para **Verified**.
-4. Vá em **API Keys** > **Create API Key** (permissão: *Sending access*, restrita ao domínio verificado).
-5. No painel da Vercel (`curr-culo-v-2-0-8kbn` > **Settings** > **Environment Variables**), cadastre nos escopos **Production** e **Preview**:
-   - `RESEND_API_KEY`: chave secreta gerada (`re_...`).
-   - `CONTACT_FROM_EMAIL`: endereço do domínio verificado (ex.: `contato@seudominio.com.br`).
-   - `CONTACT_DESTINATION_EMAIL`: caixa postal que receberá os contatos (ex.: `elias.re_is@hotmail.com`).
-6. Após salvar as variáveis do Redis e do Resend, acesse a aba **Deployments** na Vercel e execute **Redeploy** no último commit da branch para aplicar as variáveis em execução.
+1. **Adquirir um domínio próprio:** Registre o domínio desejado (ex.: `Registro.br`, `Cloudflare Registrar` ou `Vercel Domains`).
+2. **Conectar o domínio à Vercel:** No projeto `curr-culo-v-2-0-8kbn` > **Settings** > **Domains**, adicione o domínio e aponte os registros `A` (`76.76.21.21`) e `CNAME` (`cname.vercel-dns.com`) conforme instruído pela Vercel.
+3. **Validar o domínio no Resend:** Acesse [resend.com/domains](https://resend.com/domains) > **Add Domain** e informe seu domínio (ex.: `seudominio.com.br`).
+4. **Configurar os registros DNS do Resend:** No provedor DNS do seu domínio, adicione os registros gerados pelo Resend:
+   - **DKIM (`TXT`):** `resend._domainkey`
+   - **SPF (`MX` e `TXT`):** no subdomínio `send`
+   - **DMARC (`TXT`):** `_dmarc` (`v=DMARC1; p=none;`)
+   - Clique em **Verify DNS Records** no Resend até obter status **Verified**.
+5. **Definir `CONTACT_FROM_EMAIL` e `RESEND_API_KEY`:** Em `curr-culo-v-2-0-8kbn` > **Settings** > **Environment Variables** (*Production* e *Preview*), defina:
+   - `RESEND_API_KEY`: chave gerada em `resend.com/api-keys`.
+   - `CONTACT_FROM_EMAIL`: remetente do domínio verificado (ex.: `contato@seudominio.com.br`).
+   - `CONTACT_DESTINATION_EMAIL`: `elias.re_is@hotmail.com`.
+6. **Ativar o formulário de envio automático:** Nas variáveis de ambiente da Vercel, defina:
+   - `NEXT_PUBLIC_CONTACT_API_ENABLED="true"`
+7. **Atualizar URLs canônicas, sitemap e metadados:** Nas variáveis de ambiente da Vercel, defina:
+   - `NEXT_PUBLIC_SITE_URL="https://seudominio.com.br"`
+   - Execute um **Redeploy** na aba **Deployments** da Vercel. O `layout.tsx`, `sitemap.xml`, `robots.txt` e os schemas JSON-LD passarão automaticamente a usar o novo domínio.
+8. **Testar o recebimento real:** Envie uma mensagem de teste em `/contato`, verifique o código `HTTP 200`, o `messageId` e o status **Delivered** no painel *Logs* do Resend.
 
 ---
 
 ## 4. Procedimento de Rollback
 
-Em caso de anomalia operacional após uma publicação:
 1. Acesse o projeto `curr-culo-v-2-0-8kbn` na Vercel > aba **Deployments**.
-2. Localize o deployment anterior estável.
-3. Clique no menu de três pontos (`...`) > **Instant Rollback** para reverter o tráfego imediatamente sem necessidade de nova compilação.
-   - Em nível de código Git, o histórico linear permite reversão não destrutiva via `git revert <commit-sha>`.
+2. Selecione o deployment estável anterior e clique em **Instant Rollback**.

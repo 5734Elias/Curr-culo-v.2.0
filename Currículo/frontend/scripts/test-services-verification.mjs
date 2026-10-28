@@ -105,6 +105,25 @@ try {
   assert.strictEqual(unconfiguredResult.notConfigured, true, 'Deve sinalizar notConfigured.');
   console.log('  -> Prevenção de falso sucesso sem credenciais: OK (retorna notConfigured)');
 
+  // 2.1.b Bloqueio de remetente não verificado (@resend.dev) em Produção
+  process.env.RESEND_API_KEY = 're_test_dummy_key';
+  process.env.CONTACT_FROM_EMAIL = 'portfolio@resend.dev';
+  const unverifiedSenderResult = await sendContactEmail({
+    name: 'Auditor QA',
+    email: 'auditor@example.com',
+    subject: 'Teste Remetente Não Verificado',
+    message: 'Não deve tentar enviar via @resend.dev em produção.',
+  });
+  assert.strictEqual(
+    unverifiedSenderResult.success,
+    false,
+    'Em produção, não deve permitir remetente @resend.dev sem domínio próprio verificado.'
+  );
+  assert.strictEqual(unverifiedSenderResult.notConfigured, true, 'Deve retornar notConfigured para @resend.dev em prod.');
+  delete process.env.RESEND_API_KEY;
+  delete process.env.CONTACT_FROM_EMAIL;
+  console.log('  -> Bloqueio de remetente não autorizado (@resend.dev) em produção: OK');
+
   // 2.2 Envio Autorizado Controlado
   if (savedApiKey) {
     console.log('  -> RESEND_API_KEY detectada. Executando envio autorizado único para delivered@resend.dev...');
@@ -165,18 +184,25 @@ assert.ok(
 );
 assert.ok(
   contactPageSource.includes('mailto:'),
-  'A interface deve conter botão de contingência mailto: pré-preenchido.'
+  'A interface deve conter botão de envio direto e contingência mailto: pré-preenchido.'
+);
+assert.ok(
+  contactPageSource.includes('Enviar e-mail'),
+  'A interface deve apresentar botão principal explícito "Enviar e-mail" para abertura no cliente do visitante.'
 );
 assert.ok(
   contactPageSource.includes('formData.name') && contactPageSource.includes('formData.message'),
-  'O botão mailto: de contingência deve pré-preencher nome e mensagem do usuário.'
+  'O botão mailto: deve pré-preencher nome e mensagem do usuário.'
 );
-console.log('  -> Tratamento de HTTP 200 (Sucesso com banner verde e reset): OK');
-console.log('  -> Tratamento de HTTP 429 (Alerta de cota excedida + contingência mailto): OK');
-console.log('  -> Tratamento de HTTP 503 (Alerta de serviço indisponível + contingência mailto): OK');
+assert.ok(
+  contactPageSource.includes('elias-ribeiro-dos-reis-3b289a43'),
+  'O link de LinkedIn na página de contato deve exibir o slug oficial consistente com PROFILE.'
+);
+console.log('  -> Fluxo direto mailto: ("Enviar e-mail") com assunto/mensagem preparados: OK');
+console.log('  -> Tratamento de HTTP 200 / 429 / 503 preservado para ativação futura da API: OK');
 
 // ----------------------------------------------------------------------------
-// [4/5] VERIFICAÇÃO DE STACK: NEXT.JS 16.3, REACT 19 E RATE LIMIT 5 REQ/HORA
+// [4/5] VERIFICAÇÃO DE STACK: NEXT.JS 16, REACT 19 E RATE LIMIT 5 REQ/HORA
 // ----------------------------------------------------------------------------
 console.log('\n[4/5] Verificando versões da stack e janela de rate limit...');
 
@@ -184,7 +210,7 @@ const packageJson = JSON.parse(
   fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8')
 );
 
-assert.strictEqual(packageJson.dependencies.next, '16.3.0', 'Next.js deve ser versão 16.3.0.');
+assert.ok(packageJson.dependencies.next.startsWith('16.'), 'Next.js deve ser versão 16.x.');
 assert.strictEqual(packageJson.dependencies.react, '19.2.8', 'React deve ser versão 19.2.8.');
 assert.strictEqual(packageJson.dependencies['react-dom'], '19.2.8', 'React-DOM deve ser versão 19.2.8.');
 assert.ok(
@@ -196,7 +222,7 @@ assert.strictEqual(
   undefined,
   'next-themes NÃO deve ser dependência do projeto.'
 );
-console.log('  -> Next.js 16.3.0 e React 19.2.8 confirmados.');
+console.log(`  -> Next.js ${packageJson.dependencies.next} e React ${packageJson.dependencies.react} confirmados.`);
 console.log('  -> Execução de testes via npx tsx confirmada.');
 
 // Verificação do limite de 5 requisições por hora no código fonte

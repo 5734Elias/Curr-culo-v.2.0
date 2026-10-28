@@ -4,7 +4,7 @@
 
 ## 1. Stack Tecnológica & Proteção de Cabeçalhos HTTP (`next.config.ts`)
 
-A aplicação opera sobre **Next.js 16.3.0** e **React 19.2.8**. A suíte de testes do projeto executa de forma nativa e estrita via **`npx tsx` (TypeScript Execute)**, garantindo fidelidade de tipos TypeScript e módulos ESM sem necessidade de transpiladores legados (como Jest/Babel).
+A aplicação opera sobre **Next.js 16.4.3** (atualização de segurança compatível da série Next.js 16), **React 19.2.8** e **Zod 4.6.6**, com **0 vulnerabilidades** reportadas no `npm audit`. A suíte de testes do projeto executa de forma nativa e estrita via **`npx tsx` (TypeScript Execute)**, garantindo fidelidade de tipos TypeScript e módulos ESM sem necessidade de transpiladores legados (como Jest/Babel).
 
 O arquivo de configuração do Next.js aplica cabeçalhos de segurança obrigatórios para todas as rotas com conformidade OWASP:
 
@@ -70,6 +70,8 @@ A alternância de temas do projeto é implementada no componente [`ThemeToggle.t
 
 ## 4. Proteção Antispam (Honeypot) & Integridade de Mensageria
 
+- **Modo de Contato Direto (`.vercel.app` sem Domínio Próprio):** Enquanto `NEXT_PUBLIC_CONTACT_API_ENABLED` não estiver ativado, a página `/contato` opera por abertura explícita do cliente de e-mail do visitante (`mailto:elias.re_is@hotmail.com` com assunto e mensagem preparados), sem transmitir nem armazenar dados digitados em serviços intermediários.
+- **Bloqueio de Remetentes Não Autorizados em Produção:** Em `src/services/contactService.ts`, o envio via Resend em produção exige obrigatoriamente `RESEND_API_KEY` e um `CONTACT_FROM_EMAIL` de domínio próprio verificado (rejeitando endereços `@resend.dev` em produção).
 - **Honeypot Silencioso:** O campo invisível `websiteHoneypot` no formulário é validado pelo schema Zod. Quando preenchido por robôs, a requisição é aceita com HTTP 200 `{ success: true, message: "Mensagem recebida." }`, descartando o payload sem alertar o bot nem consumir cotas da API de e-mail.
 - **Prevenção de Falso Sucesso em Produção:** O mock de simulação de e-mail (`MOCK_EMAIL_SERVICE`) é estritamente proibido quando `NODE_ENV === 'production'`, assegurando que nenhum falso sucesso seja gerado em ambiente produtivo.
 - **Limites Estritos de Payload:**

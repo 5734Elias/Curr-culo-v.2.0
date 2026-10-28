@@ -20,7 +20,7 @@ export interface SendMessageResult {
 export async function sendContactEmail(payload: ContactMessage): Promise<SendMessageResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const destinationEmail = process.env.CONTACT_DESTINATION_EMAIL || 'elias.re_is@hotmail.com';
-  const fromEmail = process.env.CONTACT_FROM_EMAIL || 'portfolio@resend.dev';
+  const fromEmail = process.env.CONTACT_FROM_EMAIL;
   const isProduction = process.env.NODE_ENV === 'production';
 
   // Modo de Teste ou Mock explícito EXCLUSIVO para ambientes de desenvolvimento / CI.
@@ -32,8 +32,9 @@ export async function sendContactEmail(payload: ContactMessage): Promise<SendMes
     };
   }
 
-  // Se a chave da API não estiver definida no ambiente
-  if (!apiKey) {
+  // Se a chave da API ou o remetente verificado não estiverem definidos no ambiente
+  // (Não utiliza remetentes não verificados @resend.dev em produção)
+  if (!apiKey || !fromEmail || (isProduction && fromEmail.toLowerCase().endsWith('@resend.dev'))) {
     return {
       success: false,
       notConfigured: true,
