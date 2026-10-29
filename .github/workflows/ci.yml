@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - feat/whatsapp-telegram-contact
   pull_request:
     branches:
       - main
@@ -49,4 +50,3 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
-

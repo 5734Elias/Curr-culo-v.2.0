@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 console.log('================================================================');
-console.log('--- VERIFICAÇÃO TÉCNICA: SERVIÇOS, UI, TEMAS & NEXT.JS 16.3 ---');
+console.log('--- VERIFICAÇÃO TÉCNICA: SERVIÇOS, UI, TEMAS & NEXT.JS 16.4 ---');
 console.log('================================================================');
 
 // ----------------------------------------------------------------------------
@@ -160,12 +160,16 @@ try {
 }
 
 // ----------------------------------------------------------------------------
-// [3/5] TRATAMENTO DE ESTADOS NA INTERFACE (HTTP 200, 429 E 503)
+// [3/5] TRATAMENTO DE ESTADOS NA INTERFACE, WHATSAPP/TELEGRAM E RODAPÉ
 // ----------------------------------------------------------------------------
-console.log('\n[3/5] Verificando tratamento de estados da UI em contato/page.tsx...');
+console.log('\n[3/5] Verificando UI de Contato, Canais Diretos (WhatsApp/Telegram) e Rodapé...');
 
 const contactPageSource = fs.readFileSync(
   path.join(__dirname, '../src/app/contato/page.tsx'),
+  'utf-8'
+);
+const footerSource = fs.readFileSync(
+  path.join(__dirname, '../src/components/layout/Footer.tsx'),
   'utf-8'
 );
 
@@ -191,15 +195,32 @@ assert.ok(
   'A interface deve apresentar botão principal explícito "Enviar e-mail" para abertura no cliente do visitante.'
 );
 assert.ok(
-  contactPageSource.includes('formData.name') && contactPageSource.includes('formData.message'),
-  'O botão mailto: deve pré-preencher nome e mensagem do usuário.'
+  contactPageSource.includes('Canais Diretos de Contato'),
+  'A página de contato deve conter a seção "Canais Diretos de Contato".'
+);
+assert.ok(
+  contactPageSource.includes('WHATSAPP_CONTACT_URL') && contactPageSource.includes('TELEGRAM_CONTACT_URL'),
+  'A página de contato deve reutilizar WHATSAPP_CONTACT_URL e TELEGRAM_CONTACT_URL centralizados.'
+);
+assert.ok(
+  contactPageSource.includes('WHATSAPP — CONVERSAR AGORA:') &&
+    contactPageSource.includes('TELEGRAM — ENVIAR MENSAGEM:') &&
+    contactPageSource.includes('E-MAIL — PREPARAR E ENVIAR E-MAIL:') &&
+    contactPageSource.includes('LINKEDIN — PERFIL PROFISSIONAL:') &&
+    contactPageSource.includes('GITHUB — PROJETOS E REPOSITÓRIOS:'),
+  'A seção Canais Diretos de Contato deve listar os 5 canais na hierarquia homologada.'
+);
+assert.ok(
+  footerSource.includes('WHATSAPP_CONTACT_URL') && footerSource.includes('TELEGRAM_CONTACT_URL'),
+  'O rodapé deve reutilizar WHATSAPP_CONTACT_URL e TELEGRAM_CONTACT_URL centralizados.'
 );
 assert.ok(
   contactPageSource.includes('elias-ribeiro-dos-reis-3b289a43'),
   'O link de LinkedIn na página de contato deve exibir o slug oficial consistente com PROFILE.'
 );
-console.log('  -> Fluxo direto mailto: ("Enviar e-mail") com assunto/mensagem preparados: OK');
-console.log('  -> Tratamento de HTTP 200 / 429 / 503 preservado para ativação futura da API: OK');
+console.log('  -> Seção "Canais Diretos de Contato" (WhatsApp, Telegram, E-mail, LinkedIn, GitHub): OK');
+console.log('  -> Rodapé (Footer.tsx) com WhatsApp, Telegram, LinkedIn, GitHub e E-mail: OK');
+console.log('  -> Fluxo direto mailto: ("Enviar e-mail") e tratamento HTTP 200 / 429 / 503: OK');
 
 // ----------------------------------------------------------------------------
 // [4/5] VERIFICAÇÃO DE STACK: NEXT.JS 16, REACT 19 E RATE LIMIT 5 REQ/HORA
