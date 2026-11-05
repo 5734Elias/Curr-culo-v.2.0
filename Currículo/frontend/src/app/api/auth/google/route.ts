@@ -36,3 +36,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/admin/login?error=UnknownError', req.url));
   }
 }
+
