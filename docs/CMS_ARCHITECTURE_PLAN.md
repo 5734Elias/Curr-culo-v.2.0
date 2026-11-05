@@ -196,7 +196,7 @@ Ao alterar o status de um certificado para "Publicado":
 
 - [x] **Fase 1: Auditoria da arquitetura atual e plano de migração.** (Concluída nesta etapa)
 - [x] **Fase 2: Banco de dados e persistência (Prisma + Migrations + Seeder idempotente de 65 cursos).** (Concluída nesta etapa)
-- [ ] **Fase 3: Autenticação Google OIDC e proteção administrativa (Auth.js / Jose + Middleware de sessão).**
+- [x] **Fase 3: Autenticação Google OIDC e proteção administrativa (Auth.js / Jose + Middleware de sessão).** (Concluída nesta etapa)
 - [ ] **Fase 4: Dashboard administrativo (`/admin`) com métricas reais e identidade Cyberpunk.**
 - [ ] **Fase 5: CRUD de certificados (`/admin/certificates`) com upload seguro.**
 - [ ] **Fase 6: CRUD de habilidades e formação (`/admin/skills` e `/admin/education`).**

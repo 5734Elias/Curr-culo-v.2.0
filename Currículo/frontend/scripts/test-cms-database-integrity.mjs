@@ -183,3 +183,4 @@ console.log('  -> .env.example documentado e livre de segredos expostos: OK');
 console.log('\n================================================================');
 console.log('--- TODOS OS TESTES DA FASE 2 PASSARAM COM SUCESSO ABSOLUTO! ---');
 console.log('================================================================\n');
+

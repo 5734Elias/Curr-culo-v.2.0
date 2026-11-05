@@ -37,3 +37,4 @@ export async function isDatabaseAvailable(): Promise<boolean> {
     return false;
   }
 }
+

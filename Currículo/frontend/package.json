@@ -8,11 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs && npx tsx scripts/validate-data-consistency.mjs && npx tsx scripts/test-seo-and-routes.mjs && npx tsx scripts/test-ui-accessibility.mjs && npx tsx scripts/test-audit-regressions.mjs && npx tsx scripts/test-services-verification.mjs && npx tsx scripts/test-cybersecurity-hardening.mjs && npx tsx scripts/test-cms-database-integrity.mjs"
+    "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs && npx tsx scripts/validate-data-consistency.mjs && npx tsx scripts/test-seo-and-routes.mjs && npx tsx scripts/test-ui-accessibility.mjs && npx tsx scripts/test-audit-regressions.mjs && npx tsx scripts/test-services-verification.mjs && npx tsx scripts/test-cybersecurity-hardening.mjs && npx tsx scripts/test-cms-database-integrity.mjs && npx tsx scripts/test-cms-auth-security.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "clsx": "^2.1.1",
+    "jose": "^6.2.15",
     "lucide-react": "^1.31.0",
     "next": "16.4.3",
     "react": "19.2.8",

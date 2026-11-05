@@ -184,3 +184,4 @@ ALTER TABLE "CertificateSkill" ADD CONSTRAINT "CertificateSkill_certificateId_fk
 
 -- AddForeignKey
 ALTER TABLE "CertificateSkill" ADD CONSTRAINT "CertificateSkill_skillId_fkey" FOREIGN KEY ("skillId") REFERENCES "Skill"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
