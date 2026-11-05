@@ -195,7 +195,7 @@ Ao alterar o status de um certificado para "Publicado":
 ## 9. Plano de Execução por Fases
 
 - [x] **Fase 1: Auditoria da arquitetura atual e plano de migração.** (Concluída nesta etapa)
-- [ ] **Fase 2: Banco de dados e persistência (Prisma + Migrations + Seeder idempotente de 65 cursos).**
+- [x] **Fase 2: Banco de dados e persistência (Prisma + Migrations + Seeder idempotente de 65 cursos).** (Concluída nesta etapa)
 - [ ] **Fase 3: Autenticação Google OIDC e proteção administrativa (Auth.js / Jose + Middleware de sessão).**
 - [ ] **Fase 4: Dashboard administrativo (`/admin`) com métricas reais e identidade Cyberpunk.**
 - [ ] **Fase 5: CRUD de certificados (`/admin/certificates`) com upload seguro.**
@@ -204,3 +204,4 @@ Ao alterar o status de um certificado para "Publicado":
 - [ ] **Fase 8: Integração do conteúdo dinâmico ao portfólio público com revalidação sob demanda.**
 - [ ] **Fase 9: Hardening, QA e testes de segurança automatizados.**
 - [ ] **Fase 10: Homologação na Vercel e publicação autorizada na branch `main`.**
+

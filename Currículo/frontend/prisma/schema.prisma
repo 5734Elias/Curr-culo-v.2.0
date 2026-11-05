@@ -1,0 +1,158 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Administrator {
+  id          String    @id @default(uuid())
+  googleSub   String    @unique
+  email       String    @unique
+  name        String
+  avatarUrl   String?
+  role        String    @default("SUPER_ADMIN")
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([googleSub])
+  @@index([email])
+}
+
+model Certificate {
+  id                 String             @id
+  title              String
+  institution        String
+  institutionGroup   String             @default("outras")
+  technologyProvider String?
+  issuerPriority     String             @default("standard")
+  credentialType     String             @default("curso")
+  workloadHours      Float?
+  startDate          String?
+  endDate            String?
+  issuedAt           String?
+  category           String
+  credentialAssetUrl String?
+  verificationUrl    String?
+  credentialCode     String?
+  publishCredential  Boolean            @default(true)
+  published          Boolean            @default(true)
+  displayOrder       Int                @default(0)
+  verificationStatus String             @default("document-reviewed")
+  sourceFile         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  skills             CertificateSkill[]
+
+  @@index([institutionGroup])
+  @@index([category])
+  @@index([published])
+  @@index([displayOrder])
+}
+
+model Skill {
+  id               String             @id @default(uuid())
+  name             String             @unique
+  category         String             @default("desenvolvimento")
+  description      String?
+  proficiencyLevel String?
+  iconName         String?
+  displayOrder     Int                @default(0)
+  published        Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  certificates     CertificateSkill[]
+
+  @@index([category])
+  @@index([published])
+}
+
+model CertificateSkill {
+  certificateId String
+  skillId       String
+  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  skill         Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([certificateId, skillId])
+  @@index([certificateId])
+  @@index([skillId])
+}
+
+model Education {
+  id           String   @id @default(uuid())
+  institution  String
+  degree       String
+  fieldOfStudy String
+  startDate    String
+  endDate      String?
+  isCurrent    Boolean  @default(false)
+  description  String?
+  published    Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([published])
+  @@index([displayOrder])
+}
+
+model Project {
+  id               String   @id @default(uuid())
+  slug             String   @unique
+  title            String
+  summary          String
+  context          String
+  problem          String
+  solution         String
+  architecture     Json
+  technologies     Json
+  securityControls Json
+  testing          Json
+  outcomes         Json
+  links            Json
+  published        Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([slug])
+  @@index([published])
+}
+
+model MediaAsset {
+  id                 String   @id @default(uuid())
+  fileName           String
+  storedKey          String   @unique
+  mimeType           String
+  sizeBytes          Int
+  assetType          String
+  url                String
+  isPublic           Boolean  @default(true)
+  uploadedByAdminSub String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([storedKey])
+  @@index([assetType])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  ipHash     String
+  adminEmail String
+  adminSub   String
+  createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType])
+  @@index([adminSub])
+  @@index([createdAt])
+}
+
