@@ -75,3 +75,30 @@ export const TogglePublishSchema = z.object({
   published: z.boolean(),
 });
 export type TogglePublishInput = z.infer<typeof TogglePublishSchema>;
+
+/**
+ * Schema para Criação de Habilidade / Competência Técnica.
+ */
+export const CreateSkillSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'O nome da habilidade deve ter pelo menos 2 caracteres.')
+    .max(80, 'O nome da habilidade não pode exceder 80 caracteres.'),
+  category: CourseCategorySchema.default('desenvolvimento'),
+  description: z.string().trim().max(300, 'A descrição não pode exceder 300 caracteres.').optional().nullable(),
+  proficiencyLevel: z
+    .enum(['iniciante', 'intermediario', 'avancado', 'especialista'])
+    .default('avancado'),
+  iconName: z.string().trim().max(50).optional().nullable(),
+  displayOrder: z.number().int().default(0),
+  published: z.boolean().default(true),
+});
+export type CreateSkillInput = z.infer<typeof CreateSkillSchema>;
+
+/**
+ * Schema para Atualização de Habilidade.
+ */
+export const UpdateSkillSchema = CreateSkillSchema.partial();
+export type UpdateSkillInput = z.infer<typeof UpdateSkillSchema>;
+

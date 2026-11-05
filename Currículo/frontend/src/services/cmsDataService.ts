@@ -1,6 +1,11 @@
 import { prisma, isDatabaseAvailable } from '@/lib/prisma';
 import { Course, ProjectCase } from '@/schemas/content';
-import { CreateCertificateInput, UpdateCertificateInput } from '@/schemas/cms';
+import {
+  CreateCertificateInput,
+  UpdateCertificateInput,
+  CreateSkillInput,
+  UpdateSkillInput,
+} from '@/schemas/cms';
 import { COURSES } from '@/data/courses';
 import { PROJECTS } from '@/data/projects';
 
@@ -55,6 +60,26 @@ export interface AdminCertificateRecord {
 export interface CertificateFilters {
   search?: string;
   group?: string;
+  category?: string;
+  status?: 'all' | 'published' | 'draft';
+}
+
+export interface AdminSkillRecord {
+  id: string;
+  name: string;
+  category: string;
+  description?: string | null;
+  proficiencyLevel?: string | null;
+  iconName?: string | null;
+  displayOrder: number;
+  published: boolean;
+  certificatesCount: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface SkillFilters {
+  search?: string;
   category?: string;
   status?: 'all' | 'published' | 'draft';
 }
@@ -645,6 +670,298 @@ export async function deleteCertificateAdmin(
       data: {
         action: 'DELETE_CERTIFICATE',
         entityType: 'Certificate',
+        entityId: id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { id },
+      },
+    });
+    return true;
+  }
+
+  return true;
+}
+
+/**
+ * Consulta administrativa de habilidades e competências com filtros e contagem de certificados.
+ */
+export async function getAllSkillsAdmin(
+  filters: SkillFilters = {}
+): Promise<{ skills: AdminSkillRecord[]; total: number; databaseConnected: boolean }> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    try {
+      const where: Record<string, unknown> = {};
+
+      if (filters.category && filters.category !== 'todos') {
+        where.category = filters.category;
+      }
+
+      if (filters.status === 'published') {
+        where.published = true;
+      } else if (filters.status === 'draft') {
+        where.published = false;
+      }
+
+      if (filters.search?.trim()) {
+        const query = filters.search.trim();
+        where.OR = [
+          { name: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } },
+        ];
+      }
+
+      const records = await prisma.skill.findMany({
+        where,
+        include: {
+          _count: {
+            select: { certificates: true },
+          },
+        },
+        orderBy: [{ category: 'asc' }, { displayOrder: 'asc' }],
+      });
+
+      return {
+        skills: records.map((r) => ({
+          id: r.id,
+          name: r.name,
+          category: r.category,
+          description: r.description,
+          proficiencyLevel: r.proficiencyLevel,
+          iconName: r.iconName,
+          displayOrder: r.displayOrder,
+          published: r.published,
+          certificatesCount: r._count.certificates,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        })),
+        total: records.length,
+        databaseConnected: true,
+      };
+    } catch (err) {
+      console.warn('[CMS_SERVICE] Erro ao consultar habilidades no banco para o admin:', err);
+    }
+  }
+
+  // Fallback derivado da lista estática de cursos
+  const skillCountMap = new Map<string, { count: number; category: string }>();
+  for (const c of COURSES) {
+    for (const name of c.skills) {
+      const existing = skillCountMap.get(name);
+      if (existing) {
+        existing.count++;
+      } else {
+        skillCountMap.set(name, { count: 1, category: c.category });
+      }
+    }
+  }
+
+  let staticSkills: AdminSkillRecord[] = Array.from(skillCountMap.entries()).map(
+    ([name, data], idx) => ({
+      id: `static-skill-${idx}`,
+      name,
+      category: data.category,
+      description: null,
+      proficiencyLevel: 'avancado',
+      iconName: null,
+      displayOrder: idx,
+      published: true,
+      certificatesCount: data.count,
+    })
+  );
+
+  if (filters.category && filters.category !== 'todos') {
+    staticSkills = staticSkills.filter((s) => s.category === filters.category);
+  }
+  if (filters.status === 'draft') {
+    staticSkills = [];
+  }
+  if (filters.search?.trim()) {
+    const q = filters.search.toLowerCase().trim();
+    staticSkills = staticSkills.filter((s) => s.name.toLowerCase().includes(q));
+  }
+
+  return {
+    skills: staticSkills,
+    total: staticSkills.length,
+    databaseConnected: false,
+  };
+}
+
+/**
+ * Criação administrativa de habilidade técnica.
+ */
+export async function createSkillAdmin(
+  input: CreateSkillInput,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<AdminSkillRecord> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    const record = await prisma.skill.create({
+      data: {
+        name: input.name,
+        category: input.category,
+        description: input.description ?? null,
+        proficiencyLevel: input.proficiencyLevel,
+        iconName: input.iconName ?? null,
+        displayOrder: input.displayOrder,
+        published: input.published,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'CREATE_SKILL',
+        entityType: 'Skill',
+        entityId: record.id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { name: record.name, category: record.category },
+      },
+    });
+
+    return {
+      id: record.id,
+      name: record.name,
+      category: record.category,
+      description: record.description,
+      proficiencyLevel: record.proficiencyLevel,
+      iconName: record.iconName,
+      displayOrder: record.displayOrder,
+      published: record.published,
+      certificatesCount: 0,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  return {
+    id: `local-mock-${Date.now()}`,
+    ...input,
+    certificatesCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+/**
+ * Atualização administrativa de habilidade técnica.
+ */
+export async function updateSkillAdmin(
+  id: string,
+  input: UpdateSkillInput,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<AdminSkillRecord | null> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    const record = await prisma.skill.update({
+      where: { id },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.proficiencyLevel !== undefined ? { proficiencyLevel: input.proficiencyLevel } : {}),
+        ...(input.iconName !== undefined ? { iconName: input.iconName } : {}),
+        ...(input.displayOrder !== undefined ? { displayOrder: input.displayOrder } : {}),
+        ...(input.published !== undefined ? { published: input.published } : {}),
+      },
+      include: {
+        _count: { select: { certificates: true } },
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE_SKILL',
+        entityType: 'Skill',
+        entityId: id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { updatedFields: Object.keys(input) },
+      },
+    });
+
+    return {
+      id: record.id,
+      name: record.name,
+      category: record.category,
+      description: record.description,
+      proficiencyLevel: record.proficiencyLevel,
+      iconName: record.iconName,
+      displayOrder: record.displayOrder,
+      published: record.published,
+      certificatesCount: record._count.certificates,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Alternância rápida de publicação de habilidade.
+ */
+export async function toggleSkillPublishAdmin(
+  id: string,
+  published: boolean,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<boolean> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    await prisma.skill.update({
+      where: { id },
+      data: { published },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'TOGGLE_SKILL_PUBLISHED',
+        entityType: 'Skill',
+        entityId: id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { published },
+      },
+    });
+    return true;
+  }
+
+  return true;
+}
+
+/**
+ * Exclusão administrativa de habilidade.
+ */
+export async function deleteSkillAdmin(
+  id: string,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<boolean> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    await prisma.skill.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'DELETE_SKILL',
+        entityType: 'Skill',
         entityId: id,
         adminEmail,
         adminSub,
