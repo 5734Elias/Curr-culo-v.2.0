@@ -118,27 +118,31 @@ export const ExperienceSchema = z.object({
 
 export type Experience = z.infer<typeof ExperienceSchema>;
 
-export const ContactPayloadSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Nome deve ter pelo menos 2 caracteres.')
-    .max(100, 'Nome deve ter no máximo 100 caracteres.'),
-  email: z
-    .string()
-    .email('Endereço de e-mail inválido.')
-    .max(254, 'E-mail deve ter no máximo 254 caracteres.'),
-  subject: z
-    .string()
-    .min(3, 'Assunto deve ter pelo menos 3 caracteres.')
-    .max(150, 'Assunto deve ter no máximo 150 caracteres.'),
-  message: z
-    .string()
-    .min(10, 'Mensagem deve ter pelo menos 10 caracteres.')
-    .max(2000, 'Mensagem deve ter no máximo 2000 caracteres.'),
-  websiteHoneypot: z.string().optional(),
-  consent: z.boolean().refine((val) => val === true, {
-    message: 'Você deve concordar com a comunicação de contato.',
-  }),
-});
+export const ContactPayloadSchema = z
+  .object({
+    name: z
+      .string()
+      .min(2, 'Nome deve ter pelo menos 2 caracteres.')
+      .max(100, 'Nome deve ter no máximo 100 caracteres.')
+      .regex(/^[^\r\n]*$/, 'Nome não pode conter quebras de linha.'),
+    email: z
+      .string()
+      .email('Endereço de e-mail inválido.')
+      .max(254, 'E-mail deve ter no máximo 254 caracteres.'),
+    subject: z
+      .string()
+      .min(3, 'Assunto deve ter pelo menos 3 caracteres.')
+      .max(150, 'Assunto deve ter no máximo 150 caracteres.')
+      .regex(/^[^\r\n]*$/, 'Assunto não pode conter quebras de linha.'),
+    message: z
+      .string()
+      .min(10, 'Mensagem deve ter pelo menos 10 caracteres.')
+      .max(2000, 'Mensagem deve ter no máximo 2000 caracteres.'),
+    websiteHoneypot: z.string().optional(),
+    consent: z.boolean().refine((val) => val === true, {
+      message: 'Você deve concordar com a comunicação de contato.',
+    }),
+  })
+  .strict();
 
 export type ContactPayload = z.infer<typeof ContactPayloadSchema>;

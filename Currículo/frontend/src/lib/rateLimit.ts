@@ -50,13 +50,15 @@ export function isValidIp(ip: string): boolean {
 }
 
 /**
- * Extrai e sanitiza o endereço IP real da requisição para a topologia de borda da Vercel:
- * 1. x-vercel-forwarded-for: Cabeçalho gerenciado e fornecido pela infraestrutura da Vercel contendo o IP do cliente.
- * 2. x-forwarded-for: Cabeçalho padrão HTTP onde o IP do cliente conecta na primeira posição (client, proxy1, proxy2).
- * 3. Sanitização: Validação estrita de formato IPv4 / IPv6, evitando valores maliciosos ou corrompidos.
+ * Extrai e sanitiza o endereço IP real da requisição:
+ * 1. x-vercel-forwarded-for: Cabeçalho gerenciado e fornecido pela infraestrutura de borda da Vercel.
+ * 2. x-real-ip: Cabeçalho fornecido por proxies reversos autorizados e borda Vercel com o IP do cliente conectado.
+ * 3. cf-connecting-ip: Cabeçalho fornecido por proxies Cloudflare quando ativos.
+ * 4. x-forwarded-for: Cabeçalho padrão HTTP onde o IP do cliente conecta na primeira posição (client, proxy1, proxy2).
+ * 5. Sanitização: Validação estrita de formato IPv4 / IPv6, evitando injeções ou valores corrompidos.
  */
 export function extractClientIp(headers: Headers): string {
-  // 1. Cabeçalho gerenciado e fornecido pela plataforma Vercel
+  // 1. Cabeçalho prioritário gerenciado pela plataforma Vercel
   const vercelIp = headers.get('x-vercel-forwarded-for');
   if (vercelIp) {
     const parts = vercelIp.split(',').map((p) => p.trim());
@@ -65,7 +67,19 @@ export function extractClientIp(headers: Headers): string {
     }
   }
 
-  // 2. Cabeçalho padrão X-Forwarded-For (primeiro IP válido representa a origem do cliente)
+  // 2. Cabeçalho de IP real de proxy reverso / edge
+  const realIp = headers.get('x-real-ip');
+  if (realIp && isValidIp(realIp.trim())) {
+    return realIp.trim();
+  }
+
+  // 3. Cabeçalho de borda Cloudflare
+  const cfIp = headers.get('cf-connecting-ip');
+  if (cfIp && isValidIp(cfIp.trim())) {
+    return cfIp.trim();
+  }
+
+  // 4. Cabeçalho padrão X-Forwarded-For (primeiro IP válido representa a origem do cliente)
   const forwardedFor = headers.get('x-forwarded-for');
   if (forwardedFor) {
     const parts = forwardedFor.split(',').map((p) => p.trim());
@@ -74,7 +88,7 @@ export function extractClientIp(headers: Headers): string {
     }
   }
 
-  // 3. Fallback seguro caso nenhum cabeçalho válido seja detectado
+  // 5. Fallback seguro caso nenhum cabeçalho válido seja detectado
   return '127.0.0.1';
 }
 

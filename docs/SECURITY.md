@@ -16,7 +16,7 @@ script-src-attr 'none';
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
 font-src 'self' https://fonts.gstatic.com data:;
 img-src 'self' data: blob: https:;
-connect-src 'self' https://api.resend.com;
+connect-src 'self';
 object-src 'none';
 base-uri 'self';
 frame-ancestors 'none';
@@ -31,11 +31,16 @@ X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
+X-DNS-Prefetch-Control: on
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
 ```
 
 ### Destaques das Atualizações de CSP:
 - **Eliminação de `unsafe-eval` em Produção:** `unsafe-eval` foi totalmente eliminado dos builds de produção, permanecendo condicional apenas em desenvolvimento para suporte ao Webpack HMR.
 - **Redução de Injeção Inline:** Ativação de `script-src-attr 'none'`, bloqueando a execução de atributos HTML de eventos (`onclick`, `onerror`, etc.), reduzindo substancialmente a superfície de ataque XSS.
+- **Restrição Estrita de `connect-src`:** O endpoint da API do Resend foi removido do `connect-src` do cliente e mantido exclusivamente `'self'`, pois o disparo de mensagens é realizado exclusivamente via backend Node.js serverless.
+- **Isolamento de Origem Cruzada (COOP / CORP):** Adição de `Cross-Origin-Opener-Policy: same-origin` e `Cross-Origin-Resource-Policy: same-origin` para mitigar ataques de canal lateral (Spectre) e vazamento de janelas.
 - **Isolamento de Objetos e Base:** Adição de `object-src 'none'` e `base-uri 'self'`.
 - **Avaliação de Nonce vs. SSG (Static Site Generation):** O uso de Nonce dinâmico via `middleware.ts` impede a geração estática no Next.js App Router (SSG), pois cada requisição geraria um nonce aleatório não presente nos scripts estáticos pré-renderizados em HTML na CDN da Vercel. Mantém-se `script-src-attr 'none'` e eliminação de `unsafe-eval` como modelo de defesa em profundidade compatível com SSG de altíssima performance.
 
@@ -79,6 +84,16 @@ A alternância de temas do projeto é implementada no componente [`ThemeToggle.t
   - E-mail: formato válido, máximo 254 caracteres (RFC 5321).
   - Assunto: mínimo 3, máximo 150 caracteres.
   - Mensagem: mínimo 10, máximo 2000 caracteres.
+- **Validação Estrita de Content-Type & Tamanho Máximo (DoS Prevention):**
+  - A rota `/api/contact` exige expressamente `Content-Type: application/json` (HTTP 415 para tipos não autorizados).
+  - Limite estrito de 10KB (10.240 bytes) verificado tanto no cabeçalho `Content-Length` quanto no buffer bruto do corpo (HTTP 413 `PAYLOAD_TOO_LARGE`).
+  - Tratamento controlado de JSON malformado retornando HTTP 400 (`MALFORMED_JSON`), eliminando falhas 500 no processamento de inputs inválidos.
+- **Prevenção de Email Header / CRLF Injection:**
+  - O schema Zod rejeita quebras de linha (`\r`, `\n`) em campos de cabeçalho (`name` e `subject`).
+  - `contactService.ts` sanitiza adicionalmente qualquer caractere de controle antes da montagem do payload da API de e-mail.
+  - O schema Zod é estrito (`.strict()`), bloqueando campos extras não autorizados.
+- **Mascaramento de Erros de Provedores Externos:**
+  - Em falhas de entrega de serviços externos, dados de infraestrutura ou mensagens de rejeição brutas são mascaradas, retornando mensagens genéricas controladas ao visitante.
 
 ---
 

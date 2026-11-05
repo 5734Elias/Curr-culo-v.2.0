@@ -12,6 +12,10 @@ export interface SendMessageResult {
   error?: string;
 }
 
+function redactSensitiveData(input: string): string {
+  return input.replace(/re_[a-zA-Z0-9_-]+/g, 're_***');
+}
+
 /**
  * Serviço de envio de mensagens de contato.
  * Abstrai o provedor de e-mail (Resend / SMTP / Webhook)
@@ -42,6 +46,10 @@ export async function sendContactEmail(payload: ContactMessage): Promise<SendMes
     };
   }
 
+  // Prevenção contra Email Header / CRLF Injection: sanitizar quebras de linha em campos de cabeçalho
+  const safeName = payload.name.replace(/[\r\n]+/g, ' ').trim();
+  const safeSubject = payload.subject.replace(/[\r\n]+/g, ' ').trim();
+
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -53,17 +61,20 @@ export async function sendContactEmail(payload: ContactMessage): Promise<SendMes
         from: fromEmail,
         to: [destinationEmail],
         reply_to: payload.email,
-        subject: `[Portfólio Contato] ${payload.subject} - De: ${payload.name}`,
-        text: `Nome: ${payload.name}\nE-mail: ${payload.email}\nAssunto: ${payload.subject}\n\nMensagem:\n${payload.message}`,
+        subject: `[Portfólio Contato] ${safeSubject} - De: ${safeName}`,
+        text: `Nome: ${safeName}\nE-mail: ${payload.email}\nAssunto: ${safeSubject}\n\nMensagem:\n${payload.message}`,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
+      if (isProduction) {
+        console.error('[SECURITY][CONTACT_SERVICE] Resend rejection:', redactSensitiveData(data?.message || 'Unknown error'));
+      }
       return {
         success: false,
-        error: data.message || 'Falha ao processar envio com o provedor de e-mail.',
+        error: 'Falha ao processar envio com o provedor de e-mail.',
       };
     }
 
@@ -72,10 +83,13 @@ export async function sendContactEmail(payload: ContactMessage): Promise<SendMes
       messageId: data.id,
     };
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Erro inesperado na comunicação com o servidor de e-mail.';
+    const rawError = err instanceof Error ? err.message : 'Erro inesperado na comunicação com o servidor de e-mail.';
+    if (isProduction) {
+      console.error('[SECURITY][CONTACT_SERVICE] Network error:', redactSensitiveData(rawError));
+    }
     return {
       success: false,
-      error: errorMessage,
+      error: 'Não foi possível estabelecer comunicação com o provedor de mensagens.',
     };
   }
 }

@@ -30,8 +30,71 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Validação do Corpo da Requisição com Zod
-    const body = await req.json();
+    // 3. Validação de Content-Type e Tamanho Máximo (Prevenção de DoS e Input Injection)
+    const contentType = req.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'UNSUPPORTED_MEDIA_TYPE',
+          message: 'O cabeçalho Content-Type deve ser application/json.',
+        },
+        { status: 415 }
+      );
+    }
+
+    const MAX_BODY_BYTES = 10 * 1024; // 10KB
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'PAYLOAD_TOO_LARGE',
+          message: 'O tamanho da requisição excede o limite máximo permitido de 10KB.',
+        },
+        { status: 413 }
+      );
+    }
+
+    let rawBody: string;
+    try {
+      rawBody = await req.text();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'INVALID_REQUEST',
+          message: 'Não foi possível ler o corpo da requisição.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (rawBody.length > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'PAYLOAD_TOO_LARGE',
+          message: 'O tamanho da requisição excede o limite máximo permitido de 10KB.',
+        },
+        { status: 413 }
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'MALFORMED_JSON',
+          message: 'O corpo da requisição não é um JSON válido.',
+        },
+        { status: 400 }
+      );
+    }
+
     const validation = ContactPayloadSchema.safeParse(body);
 
     if (!validation.success) {
@@ -80,7 +143,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           code: 'DELIVERY_FAILED',
-          message: sendResult.error || 'Não foi possível entregar sua mensagem no momento. Tente novamente mais tarde.',
+          message: 'Não foi possível entregar sua mensagem no momento. Por favor, utilize o contato direto.',
           fallbackEmail: 'elias.re_is@hotmail.com',
         },
         { status: 502 }
