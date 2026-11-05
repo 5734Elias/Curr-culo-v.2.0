@@ -1,15 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ContactPayloadSchema } from '@/schemas/content';
 import { extractClientIp, hashIpForPrivacy, checkRateLimit } from '@/lib/rateLimit';
+import { readRequestBodyWithLimit } from '@/lib/bodyLimiter';
 import { sendContactEmail } from '@/services/contactService';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Extração e Anonimização Segura do IP (LGPD por Design)
-    const rawIp = extractClientIp(req.headers);
-    const hashedIp = hashIpForPrivacy(rawIp);
+    // 1. Validação de Content-Type (Rejeita tipos não suportados com HTTP 415)
+    const contentType = req.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'UNSUPPORTED_MEDIA_TYPE',
+          message: 'O cabeçalho Content-Type deve ser application/json.',
+        },
+        { status: 415 }
+      );
+    }
 
-    // 2. Rate Limiting Serverless (Máximo 5 requisições por hora por IP)
+    // 2. Extração e Validação de Procedência do Endereço IP
+    // Em produção na Vercel, apenas cabeçalhos assinados pela borda são confiáveis (x-vercel-forwarded-for / x-real-ip).
+    // Se a procedência não puder ser atestada com segurança, a requisição é rejeitada para evitar colisões no rate limit.
+    const rawIp = extractClientIp(req.headers);
+    if (!rawIp) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'UNIDENTIFIED_CLIENT',
+          message: 'Não foi possível verificar a procedência da requisição com a infraestrutura de borda.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Anonimização e Rate Limiting Distribuído (Máximo 5 requisições por hora por IP)
+    const hashedIp = hashIpForPrivacy(rawIp);
     const rateCheck = await checkRateLimit(hashedIp, 5, 60 * 60 * 1000);
     if (!rateCheck.allowed) {
       const isFailClosed = rateCheck.provider === 'fail-closed';
@@ -30,60 +56,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Validação de Content-Type e Tamanho Máximo (Prevenção de DoS e Input Injection)
-    const contentType = req.headers.get('content-type') || '';
-    if (!contentType.toLowerCase().includes('application/json')) {
+    // 4. Leitura Incremental do Corpo HTTP com Limite Estrito de 10.240 Bytes (Prevenção de DoS e OOM)
+    // Monitora os bytes reais UTF-8 consumidos, cancelando o leitor de stream ao exceder a cota
+    // e rejeitando caracteres inválidos de encoding sem carregar corpos gigantes em memória.
+    const bodyResult = await readRequestBodyWithLimit(req);
+    if (!bodyResult.ok) {
       return NextResponse.json(
         {
           success: false,
-          code: 'UNSUPPORTED_MEDIA_TYPE',
-          message: 'O cabeçalho Content-Type deve ser application/json.',
+          code: bodyResult.code,
+          message: bodyResult.message,
         },
-        { status: 415 }
+        { status: bodyResult.status }
       );
     }
 
-    const MAX_BODY_BYTES = 10 * 1024; // 10KB
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: 'PAYLOAD_TOO_LARGE',
-          message: 'O tamanho da requisição excede o limite máximo permitido de 10KB.',
-        },
-        { status: 413 }
-      );
-    }
-
-    let rawBody: string;
-    try {
-      rawBody = await req.text();
-    } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          code: 'INVALID_REQUEST',
-          message: 'Não foi possível ler o corpo da requisição.',
-        },
-        { status: 400 }
-      );
-    }
-
-    if (rawBody.length > MAX_BODY_BYTES) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: 'PAYLOAD_TOO_LARGE',
-          message: 'O tamanho da requisição excede o limite máximo permitido de 10KB.',
-        },
-        { status: 413 }
-      );
-    }
-
+    // 5. Parsing Seguro de JSON
     let body: unknown;
     try {
-      body = JSON.parse(rawBody);
+      body = JSON.parse(bodyResult.rawBody);
     } catch {
       return NextResponse.json(
         {
@@ -95,8 +86,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 6. Validação Estrutural e Semântica Rigorosa com Zod
     const validation = ContactPayloadSchema.safeParse(body);
-
     if (!validation.success) {
       return NextResponse.json(
         {
@@ -111,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     const { name, email, subject, message, websiteHoneypot } = validation.data;
 
-    // 4. Honeypot Antispam: se o campo invisível foi preenchido, descarta sem alertar o bot
+    // 7. Honeypot Antispam: descarta silenciosamente robôs que preenchem campos ocultos
     if (websiteHoneypot && websiteHoneypot.trim().length > 0) {
       return NextResponse.json(
         {
@@ -122,7 +113,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Envio Real via Serviço de Mensageria (sem falso sucesso)
+    // 8. Envio Real via Serviço de Mensageria (sem falso sucesso)
     const sendResult = await sendContactEmail({ name, email, subject, message });
 
     if (sendResult.notConfigured) {
@@ -150,7 +141,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Retorno de Sucesso Verdadeiro
+    // 9. Retorno de Sucesso Verdadeiro
     return NextResponse.json(
       {
         success: true,

@@ -50,46 +50,59 @@ export function isValidIp(ip: string): boolean {
 }
 
 /**
- * Extrai e sanitiza o endereço IP real da requisição:
- * 1. x-vercel-forwarded-for: Cabeçalho gerenciado e fornecido pela infraestrutura de borda da Vercel.
- * 2. x-real-ip: Cabeçalho fornecido por proxies reversos autorizados e borda Vercel com o IP do cliente conectado.
- * 3. cf-connecting-ip: Cabeçalho fornecido por proxies Cloudflare quando ativos.
- * 4. x-forwarded-for: Cabeçalho padrão HTTP onde o IP do cliente conecta na primeira posição (client, proxy1, proxy2).
- * 5. Sanitização: Validação estrita de formato IPv4 / IPv6, evitando injeções ou valores corrompidos.
+ * Extrai e valida a procedência do endereço IP do visitante no ambiente Vercel:
+ *
+ * Avaliação de Confiança dos Cabeçalhos na Infraestrutura Real:
+ * 1. x-vercel-forwarded-for: Cabeçalho prioritário e exclusivo da borda da Vercel.
+ *    Representa o endereço IP com o qual o cliente conectou à borda.
+ *    Em caso de proxies encadeados, o primeiro IP da lista representa a origem do cliente.
+ * 2. x-real-ip: Cabeçalho normalizado e sobrescrito pela borda da Vercel com o IP real do cliente.
+ * 3. cf-connecting-ip: ELIMINADO. Não confiável neste ambiente.
+ *    Como a aplicação não opera sob túnel autenticado Cloudflare, qualquer cliente poderia enviar
+ *    um header "cf-connecting-ip" arbitrário para burlar o rate limiting por spoofing.
+ * 4. x-forwarded-for: Em produção, x-forwarded-for recebido sem a chancela de borda da Vercel
+ *    pode ser forjado pelo cliente e NÃO é considerado fonte confiável de identidade.
+ * 5. Política de Produção vs. Desenvolvimento:
+ *    - Em produção (isProduction = true), se os cabeçalhos de borda da Vercel não estiverem presentes
+ *      ou não contiverem um IP válido, a função retorna `null`.
+ *      Isso evita a armadilha de colapsar requisições em '127.0.0.1', o que geraria colisões de cota
+ *      onde um único usuário abusador esgotaria as 5 requisições e bloquearia todos os outros (DoS mútuo).
+ *    - Em desenvolvimento / testes (isProduction = false), admite x-forwarded-for ou fallback '127.0.0.1'
+ *      para permitir testes de integração locais e suítes de CI sem infraestrutura Vercel ativa.
  */
-export function extractClientIp(headers: Headers): string {
-  // 1. Cabeçalho prioritário gerenciado pela plataforma Vercel
+export function extractClientIp(
+  headers: Headers,
+  isProduction: boolean = process.env.NODE_ENV === 'production'
+): string | null {
+  // 1. Cabeçalho gerenciado e confiável da plataforma Vercel
   const vercelIp = headers.get('x-vercel-forwarded-for');
   if (vercelIp) {
-    const parts = vercelIp.split(',').map((p) => p.trim());
-    for (const candidate of parts) {
-      if (isValidIp(candidate)) return candidate;
-    }
+    const candidate = vercelIp.split(',')[0].trim();
+    if (isValidIp(candidate)) return candidate;
   }
 
-  // 2. Cabeçalho de IP real de proxy reverso / edge
+  // 2. Cabeçalho de IP real normalizado pela borda Vercel
   const realIp = headers.get('x-real-ip');
-  if (realIp && isValidIp(realIp.trim())) {
-    return realIp.trim();
+  if (realIp) {
+    const candidate = realIp.trim();
+    if (isValidIp(candidate)) return candidate;
   }
 
-  // 3. Cabeçalho de borda Cloudflare
-  const cfIp = headers.get('cf-connecting-ip');
-  if (cfIp && isValidIp(cfIp.trim())) {
-    return cfIp.trim();
-  }
-
-  // 4. Cabeçalho padrão X-Forwarded-For (primeiro IP válido representa a origem do cliente)
-  const forwardedFor = headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    const parts = forwardedFor.split(',').map((p) => p.trim());
-    for (const candidate of parts) {
-      if (isValidIp(candidate)) return candidate;
+  // 3. Em ambientes NÃO produtivos (desenvolvimento / testes locais)
+  if (!isProduction) {
+    const forwardedFor = headers.get('x-forwarded-for');
+    if (forwardedFor) {
+      const parts = forwardedFor.split(',').map((p) => p.trim());
+      for (const candidate of parts) {
+        if (isValidIp(candidate)) return candidate;
+      }
     }
+    // Fallback exclusivo para desenvolvimento local
+    return '127.0.0.1';
   }
 
-  // 5. Fallback seguro caso nenhum cabeçalho válido seja detectado
-  return '127.0.0.1';
+  // 4. Em produção: cabeçalhos ausentes ou não verificáveis retornam null
+  return null;
 }
 
 /**

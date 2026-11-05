@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { NextRequest } from 'next/server';
 
 import { ContactPayloadSchema } from '../src/schemas/content.ts';
-import { extractClientIp, resetRateLimitStore } from '../src/lib/rateLimit.ts';
+import { extractClientIp, isValidIp, resetRateLimitStore } from '../src/lib/rateLimit.ts';
+import { readRequestBodyWithLimit, MAX_REQUEST_BODY_BYTES } from '../src/lib/bodyLimiter.ts';
 import { sendContactEmail } from '../src/services/contactService.ts';
 import { POST } from '../src/app/api/contact/route.ts';
 
@@ -17,9 +18,9 @@ console.log('--- TEST SUITE: CYBERSECURITY HARDENING & DEFENSIVE CONTROLS ---');
 console.log('================================================================');
 
 // ----------------------------------------------------------------------------
-// [1/7] CONTENT-TYPE, TAMANHO MÁXIMO E TRATAMENTO DE JSON MALFORMADO NA ROTA
+// [1/8] CONTENT-TYPE, TAMANHO MÁXIMO EM BYTES, LEITURA INCREMENTAL E ENCODING
 // ----------------------------------------------------------------------------
-console.log('\n[1/7] Testando validações de Content-Type, Payload Size e JSON na API /api/contact...');
+console.log('\n[1/8] Testando validações de Content-Type, bytes UTF-8 e streaming na API /api/contact...');
 
 // 1.1 Rejeição de Content-Type inválido ou ausente (HTTP 415)
 const reqWrongContentType = new NextRequest('http://localhost:3000/api/contact', {
@@ -48,7 +49,7 @@ const resOversizedHeader = await POST(reqOversizedHeader);
 assert.strictEqual(resOversizedHeader.status, 413, 'Content-Length > 10KB deve retornar HTTP 413.');
 const bodyOversizedHeader = await resOversizedHeader.json();
 assert.strictEqual(bodyOversizedHeader.code, 'PAYLOAD_TOO_LARGE');
-console.log('  -> Rejeição de Content-Length > 10KB (HTTP 413): OK');
+console.log('  -> Rejeição antecipada via Content-Length > 10KB (HTTP 413): OK');
 
 // 1.3 Rejeição de Payload excedendo 10KB no corpo real (HTTP 413)
 const hugeBody = JSON.stringify({
@@ -67,9 +68,38 @@ const reqOversizedBody = new NextRequest('http://localhost:3000/api/contact', {
 });
 const resOversizedBody = await POST(reqOversizedBody);
 assert.strictEqual(resOversizedBody.status, 413, 'Corpo > 10KB deve retornar HTTP 413.');
+const bodyOversizedRes = await resOversizedBody.json();
+assert.strictEqual(bodyOversizedRes.code, 'PAYLOAD_TOO_LARGE');
 console.log('  -> Rejeição de corpo bruto > 10KB (HTTP 413): OK');
 
-// 1.4 Tratamento seguro de JSON malformado (HTTP 400 MALFORMED_JSON, sem erro 500)
+// 1.4 Contagem real de bytes UTF-8 (multibyte/emojis):
+// 3.000 emojis 🚀 ocupam 6.000 caracteres UTF-16 (.length), porém 12.000 bytes em UTF-8 (> 10.240 bytes)
+const emojiMessage = '🚀'.repeat(3000); // 6.000 chars UTF-16, 12.000 bytes UTF-8
+const multibytePayload = JSON.stringify({
+  name: 'Elias Reis',
+  email: 'elias@exemplo.com',
+  subject: 'Oportunidade',
+  message: emojiMessage,
+  consent: true,
+});
+const reqMultibyteOversized = new NextRequest('http://localhost:3000/api/contact', {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+  },
+  body: multibytePayload,
+});
+const resMultibyteOversized = await POST(reqMultibyteOversized);
+assert.strictEqual(
+  resMultibyteOversized.status,
+  413,
+  'Payload com contagem de caracteres UTF-16 baixa mas contagem de bytes UTF-8 > 10KB deve retornar HTTP 413.'
+);
+const bodyMultibyteRes = await resMultibyteOversized.json();
+assert.strictEqual(bodyMultibyteRes.code, 'PAYLOAD_TOO_LARGE');
+console.log('  -> Contagem real de bytes UTF-8 com emojis multibyte (HTTP 413): OK');
+
+// 1.5 Tratamento seguro de JSON malformado (HTTP 400 MALFORMED_JSON, sem erro 500)
 const reqMalformedJson = new NextRequest('http://localhost:3000/api/contact', {
   method: 'POST',
   headers: {
@@ -83,10 +113,25 @@ const bodyMalformedJson = await resMalformedJson.json();
 assert.strictEqual(bodyMalformedJson.code, 'MALFORMED_JSON');
 console.log('  -> Tratamento controlado de JSON malformado (HTTP 400 MALFORMED_JSON): OK');
 
+// 1.6 Tratamento de sequência de bytes UTF-8 inválida (HTTP 400 INVALID_ENCODING)
+const invalidUtf8Bytes = new Uint8Array([0x7b, 0x22, 0xff, 0xff, 0x22, 0x7d]); // bytes inválidos em UTF-8
+const rawReqInvalidUtf8 = new Request('http://localhost:3000/api/contact', {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+  },
+  body: invalidUtf8Bytes,
+});
+const encodingCheck = await readRequestBodyWithLimit(rawReqInvalidUtf8);
+assert.strictEqual(encodingCheck.ok, false);
+assert.strictEqual(encodingCheck.status, 400);
+assert.strictEqual(encodingCheck.code, 'INVALID_ENCODING');
+console.log('  -> Rejeição de bytes UTF-8 inválidos com TextDecoder fatal (HTTP 400 INVALID_ENCODING): OK');
+
 // ----------------------------------------------------------------------------
-// [2/7] PREVENÇÃO CONTRA CRLF INJECTION E SCHEMA STRICT NO ZOD
+// [2/8] PREVENÇÃO CONTRA CRLF INJECTION E SCHEMA STRICT NO ZOD
 // ----------------------------------------------------------------------------
-console.log('\n[2/7] Testando regras de Anti-CRLF Injection e Schema Strict...');
+console.log('\n[2/8] Testando regras de Anti-CRLF Injection e Schema Strict...');
 
 const baseValidPayload = {
   name: 'Recrutador Valido',
@@ -125,9 +170,9 @@ assert.strictEqual(extraFieldResult.success, false, 'Campos não autorizados dev
 console.log('  -> Bloqueio estrito de campos extras não mapeados (Schema.strict): OK');
 
 // ----------------------------------------------------------------------------
-// [3/7] SANITIZAÇÃO NO SERVIÇO DE E-MAIL E MASCARAMENTO DE ERROS EXTERNOS
+// [3/8] SANITIZAÇÃO NO SERVIÇO DE E-MAIL E MASCARAMENTO DE ERROS EXTERNOS
 // ----------------------------------------------------------------------------
-console.log('\n[3/7] Testando sanitização de cabeçalhos no contactService e mascaramento de erros...');
+console.log('\n[3/8] Testando sanitização de cabeçalhos no contactService e mascaramento de erros...');
 
 // 3.1 Em modo de teste, a sanitização não corrompe envio legítimo
 process.env.NODE_ENV = 'test';
@@ -179,13 +224,13 @@ delete process.env.CONTACT_FROM_EMAIL;
 delete process.env.MOCK_EMAIL_SERVICE;
 
 // ----------------------------------------------------------------------------
-// [4/7] PRECEDÊNCIA E SANITIZAÇÃO DE IP (RESISTÊNCIA A SPOOFING DE CABEÇALHOS)
+// [4/8] CONFIANÇA NO IP DO VISITANTE NA VERCEL E RESISTÊNCIA A SPOOFING
 // ----------------------------------------------------------------------------
-console.log('\n[4/7] Testando precedência e sanitização de IP multi-proxy...');
+console.log('\n[4/8] Testando precedência real de IP da Vercel, eliminação de cf-connecting-ip e rejeição de spoofing...');
 
 // 4.1 Prioridade absoluta: x-vercel-forwarded-for gerenciado pela infraestrutura Vercel
 const headersVercelPriority = new Headers({
-  'x-vercel-forwarded-for': '203.0.113.10',
+  'x-vercel-forwarded-for': '203.0.113.10, 10.0.0.1',
   'x-real-ip': '198.51.100.5',
   'cf-connecting-ip': '198.51.100.9',
   'x-forwarded-for': '1.1.1.1, 2.2.2.2',
@@ -193,10 +238,11 @@ const headersVercelPriority = new Headers({
 assert.strictEqual(
   extractClientIp(headersVercelPriority),
   '203.0.113.10',
-  'x-vercel-forwarded-for deve ter precedência máxima.'
+  'x-vercel-forwarded-for deve ter precedência máxima (primeiro IP da borda).'
 );
+console.log('  -> x-vercel-forwarded-for priorizado como fonte primária da borda Vercel: OK');
 
-// 4.2 Prioridade secundária: x-real-ip quando vercel-forwarded ausente
+// 4.2 Prioridade secundária: x-real-ip normalizado pela Vercel quando x-vercel-forwarded ausente
 const headersRealIpPriority = new Headers({
   'x-real-ip': '198.51.100.5',
   'cf-connecting-ip': '198.51.100.9',
@@ -205,51 +251,163 @@ const headersRealIpPriority = new Headers({
 assert.strictEqual(
   extractClientIp(headersRealIpPriority),
   '198.51.100.5',
-  'x-real-ip deve ser priorizado em relação a x-forwarded-for spoofável.'
+  'x-real-ip deve ser considerado quando x-vercel-forwarded-for não estiver presente.'
 );
+console.log('  -> x-real-ip como fonte secundária normalizada da Vercel: OK');
 
-// 4.3 Prioridade terciária: cf-connecting-ip
-const headersCloudflarePriority = new Headers({
+// 4.3 Eliminação de cf-connecting-ip: não é confiável no ambiente Vercel
+// Em produção, cabeçalho cf-connecting-ip enviado isoladamente é totalmente desconsiderado
+const headersCloudflareSpoof = new Headers({
   'cf-connecting-ip': '198.51.100.9',
-  'x-forwarded-for': '1.1.1.1, 2.2.2.2',
 });
 assert.strictEqual(
-  extractClientIp(headersCloudflarePriority),
-  '198.51.100.9',
-  'cf-connecting-ip deve ser priorizado.'
+  extractClientIp(headersCloudflareSpoof, true),
+  null,
+  'cf-connecting-ip deve ser completamente ignorado em produção (retorna null).'
+);
+console.log('  -> cf-connecting-ip desconsiderado e não confiável no ambiente Vercel: OK');
+
+// 4.4 Política estrita de Produção: nunca colapsar em 127.0.0.1 e rejeitar clientes não identificados
+// Previne DoS mútuo onde atacante esgotaria cota compartilhada de 127.0.0.1
+const headersMissingInProd = new Headers({
+  'user-agent': 'Mozilla/5.0',
+});
+assert.strictEqual(
+  extractClientIp(headersMissingInProd, true),
+  null,
+  'Em produção, cabeçalhos ausentes devem retornar null em vez de colapsar em 127.0.0.1.'
 );
 
-// 4.4 Sanitização de injeções em cabeçalhos de IP
+// Na API /api/contact em produção, requisição sem procedência comprovada retorna HTTP 400 UNIDENTIFIED_CLIENT
+process.env.NODE_ENV = 'production';
+const reqUnidentifiedProd = new NextRequest('http://localhost:3000/api/contact', {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    'cf-connecting-ip': '1.2.3.4', // Atacante tentando spoofing de IP via cf-connecting-ip
+  },
+  body: JSON.stringify(baseValidPayload),
+});
+const resUnidentifiedProd = await POST(reqUnidentifiedProd);
+assert.strictEqual(
+  resUnidentifiedProd.status,
+  400,
+  'Requisição em produção com cabeçalho de IP spoofado/ausente deve ser rejeitada com HTTP 400.'
+);
+const bodyUnidentifiedRes = await resUnidentifiedProd.json();
+assert.strictEqual(
+  bodyUnidentifiedRes.code,
+  'UNIDENTIFIED_CLIENT',
+  'Código de erro deve ser UNIDENTIFIED_CLIENT.'
+);
+console.log('  -> Proteção contra spoofing de IP e mitigação de DoS por 127.0.0.1 (HTTP 400 UNIDENTIFIED_CLIENT): OK');
+
+// Restaurar NODE_ENV para test
+process.env.NODE_ENV = 'test';
+
+// 4.5 Ambiente local/desenvolvimento: permite testes com x-forwarded-for ou fallback seguro 127.0.0.1
+const headersDevXff = new Headers({
+  'x-forwarded-for': '192.168.1.50',
+});
+assert.strictEqual(
+  extractClientIp(headersDevXff, false),
+  '192.168.1.50',
+  'Em desenvolvimento/teste, x-forwarded-for é aceito para permitir testes locais.'
+);
+
+const headersDevFallback = new Headers({});
+assert.strictEqual(
+  extractClientIp(headersDevFallback, false),
+  '127.0.0.1',
+  'Em desenvolvimento/teste, fallback para 127.0.0.1 é permitido exclusivamente fora de produção.'
+);
+console.log('  -> Fallback controlado restrito a desenvolvimento/teste: OK');
+
+// 4.6 Sanitização contra injeções sintáticas em cabeçalhos de IP
+assert.strictEqual(isValidIp('203.0.113.195'), true, 'IPv4 válido deve ser reconhecido.');
+assert.strictEqual(isValidIp('2001:db8::1'), true, 'IPv6 válido deve ser reconhecido.');
+assert.strictEqual(isValidIp('DROP TABLE users;--'), false, 'Injeção SQL não é IP válido.');
 const headersInjection = new Headers({
   'x-real-ip': 'DROP TABLE users;--',
   'x-forwarded-for': '<script>alert(1)</script>, 192.0.2.1',
 });
 assert.strictEqual(
-  extractClientIp(headersInjection),
+  extractClientIp(headersInjection, false),
   '192.0.2.1',
-  'Injeções devem ser descartadas pelo validador sintático.'
+  'Injeções maliciosas em cabeçalhos de IP devem ser descartadas pelo validador sintático.'
 );
+console.log('  -> Validação sintática rigorosa de IP descartando injeções SQL/XSS: OK');
 
-// 4.5 Fallback para 127.0.0.1 quando nenhum IP for válido
-const headersAllInvalid = new Headers({
-  'x-forwarded-for': 'invalid-content, another-invalid',
+// ----------------------------------------------------------------------------
+// [5/8] LEITURA INCREMENTAL DIRETA E CANCELAMENTO DE STREAM EM BODYLIMITER
+// ----------------------------------------------------------------------------
+console.log('\n[5/8] Testando leitura incremental com ReadableStream e interrupção de fluxo...');
+
+// 5.1 Stream que gera dados além do limite máximo de 10.240 bytes
+let streamCancelled = false;
+let chunksSent = 0;
+const testOversizedStream = new ReadableStream({
+  pull(controller) {
+    if (chunksSent < 20) {
+      // Envia blocos de 1KB
+      controller.enqueue(new Uint8Array(1024));
+      chunksSent++;
+    } else {
+      controller.close();
+    }
+  },
+  cancel() {
+    streamCancelled = true;
+  },
 });
-assert.strictEqual(
-  extractClientIp(headersAllInvalid),
-  '127.0.0.1',
-  'IP inválido deve recorrer a 127.0.0.1.'
-);
-console.log('  -> Precedência defensiva e sanitização de cabeçalhos de IP: OK');
+
+const mockStreamReq = new Request('http://localhost:3000/api/contact', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: testOversizedStream,
+  // @ts-expect-error duplex is required in node fetch for streaming bodies
+  duplex: 'half',
+});
+
+const streamLimitResult = await readRequestBodyWithLimit(mockStreamReq, MAX_REQUEST_BODY_BYTES);
+assert.strictEqual(streamLimitResult.ok, false);
+assert.strictEqual(streamLimitResult.status, 413);
+assert.strictEqual(streamLimitResult.code, 'PAYLOAD_TOO_LARGE');
+assert.strictEqual(streamCancelled, true, 'O stream deve ser cancelado imediatamente ao atingir o limite.');
+console.log('  -> Leitura incremental interrompida com cancelamento de stream ativo (HTTP 413): OK');
+
+// 5.2 Stream válido abaixo do limite
+const validPayloadString = JSON.stringify(baseValidPayload);
+const testValidStream = new ReadableStream({
+  start(controller) {
+    controller.enqueue(new TextEncoder().encode(validPayloadString));
+    controller.close();
+  },
+});
+const mockValidStreamReq = new Request('http://localhost:3000/api/contact', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: testValidStream,
+  // @ts-expect-error duplex is required in node fetch
+  duplex: 'half',
+});
+const streamValidResult = await readRequestBodyWithLimit(mockValidStreamReq, MAX_REQUEST_BODY_BYTES);
+assert.strictEqual(streamValidResult.ok, true);
+if (streamValidResult.ok) {
+  assert.strictEqual(streamValidResult.rawBody, validPayloadString);
+  assert.strictEqual(streamValidResult.byteLength, Buffer.byteLength(validPayloadString, 'utf-8'));
+}
+console.log('  -> Leitura incremental bem-sucedida de stream dentro da cota: OK');
 
 // ----------------------------------------------------------------------------
-// [5/7] CONTENT-SECURITY-POLICY E CABEÇALHOS DE DEFESA EM PROFUNDIDADE
+// [6/8] CONTENT-SECURITY-POLICY E CABEÇALHOS DE DEFESA EM PROFUNDIDADE
 // ----------------------------------------------------------------------------
-console.log('\n[5/7] Testando endurecimento de cabeçalhos em next.config.ts...');
+console.log('\n[6/8] Testando endurecimento de cabeçalhos em next.config.ts...');
 
 const nextConfigPath = path.resolve(__dirname, '../next.config.ts');
 const nextConfigContent = fs.readFileSync(nextConfigPath, 'utf8');
 
-// 5.1 Eliminação de api.resend.com do connect-src no cliente
+// 6.1 Eliminação de api.resend.com do connect-src no cliente
 assert.ok(
   nextConfigContent.includes("connect-src 'self';"),
   'connect-src no cliente deve ser restrito estritamente a self.'
@@ -259,7 +417,7 @@ assert.ok(
   'api.resend.com não deve estar exposto no connect-src do navegador.'
 );
 
-// 5.2 Presença de Cross-Origin-Opener-Policy e Cross-Origin-Resource-Policy
+// 6.2 Presença de Cross-Origin-Opener-Policy e Cross-Origin-Resource-Policy
 assert.ok(
   nextConfigContent.includes("key: 'Cross-Origin-Opener-Policy'") &&
     nextConfigContent.includes("value: 'same-origin'"),
@@ -271,7 +429,7 @@ assert.ok(
   'Deve conter Cross-Origin-Resource-Policy: same-origin.'
 );
 
-// 5.3 Desativação do cabeçalho de tecnologia (poweredByHeader: false)
+// 6.3 Desativação do cabeçalho de tecnologia (poweredByHeader: false)
 assert.ok(
   nextConfigContent.includes('poweredByHeader: false'),
   'poweredByHeader deve ser false para não expor Next.js no header X-Powered-By.'
@@ -279,9 +437,9 @@ assert.ok(
 console.log('  -> Restrição de CSP connect-src para self e isolamento Cross-Origin: OK');
 
 // ----------------------------------------------------------------------------
-// [6/7] AUDITORIA DE LINKS EXTERNOS (NOOPENER NOREFERRER & PROTOCOLOS SEGUROS)
+// [7/8] AUDITORIA DE LINKS EXTERNOS (NOOPENER NOREFERRER & PROTOCOLOS SEGUROS)
 // ----------------------------------------------------------------------------
-console.log('\n[6/7] Testando segurança de links externos (target="_blank")...');
+console.log('\n[7/8] Testando segurança de links externos (target="_blank")...');
 
 const srcDir = path.resolve(__dirname, '../src');
 
@@ -306,7 +464,6 @@ let totalRelProtected = 0;
 
 tsxFiles.forEach((filePath) => {
   const content = fs.readFileSync(filePath, 'utf8');
-  // Encontrar todas as tags <a que contêm target="_blank"
   const aTagRegex = /<a\s+[^>]*target=["']_blank["'][^>]*>/gi;
   const matches = content.match(aTagRegex) || [];
   matches.forEach((tag) => {
@@ -328,9 +485,9 @@ assert.ok(totalTargetBlank > 0, 'Deve auditar links existentes na aplicação.')
 console.log(`  -> 100% dos ${totalTargetBlank} links externos possuem proteção rel="noopener noreferrer": OK`);
 
 // ----------------------------------------------------------------------------
-// [7/7] ISOLAMENTO DE SEGREDOS E AUSÊNCIA DE PREFIXO NEXT_PUBLIC_ EM CREDENCIAIS
+// [8/8] ISOLAMENTO DE SEGREDOS E AUSÊNCIA DE PREFIXO NEXT_PUBLIC_ EM CREDENCIAIS
 // ----------------------------------------------------------------------------
-console.log('\n[7/7] Testando isolamento e ausência de segredos com NEXT_PUBLIC_...');
+console.log('\n[8/8] Testando isolamento e ausência de segredos com NEXT_PUBLIC_...');
 
 const envExamplePath = path.resolve(__dirname, '../.env.example');
 const envExampleContent = fs.readFileSync(envExamplePath, 'utf8');
@@ -350,11 +507,10 @@ forbiddenPublicKeys.forEach((key) => {
   );
 });
 
-// Conferir se chaves confidenciais estão sem NEXT_PUBLIC_
 assert.ok(envExampleContent.includes('RESEND_API_KEY=""'), 'RESEND_API_KEY deve ser privada.');
 assert.ok(envExampleContent.includes('UPSTASH_REDIS_REST_TOKEN=""'), 'UPSTASH_REDIS_REST_TOKEN deve ser privada.');
 console.log('  -> Auditoria de isolamento de segredos no servidor aprovada: OK');
 
 console.log('\n================================================================');
-console.log('>>> TODOS OS 7 TESTES DE CYBERSECURITY HARDENING FORAM APROVADOS! <<<');
+console.log('>>> TODOS OS 8 TESTES DE CYBERSECURITY HARDENING FORAM APROVADOS! <<<');
 console.log('================================================================\n');
