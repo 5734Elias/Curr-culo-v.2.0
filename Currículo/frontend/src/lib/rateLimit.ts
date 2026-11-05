@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import net from 'node:net';
 
 export type RateLimitProvider =
   | 'upstash-redis'
@@ -33,19 +34,26 @@ export function resetRateLimitStore(): void {
 
 /**
  * Validação rigorosa de formato IPv4 ou IPv6 para prevenção de cabeçalhos forjados / injection.
+ * Utiliza primordialmente a implementação nativa net.isIP() do Node.js (RFC-compliant),
+ * garantindo suporte integral a IPv4 e todas as formas de IPv6 compactado (RFC 4291 / RFC 5952).
  */
 export function isValidIp(ip: string): boolean {
   if (!ip || typeof ip !== 'string') return false;
   const trimmed = ip.trim();
 
-  // IPv4 padrão (ex: 192.168.1.1 ou 203.0.113.195)
+  // Validação nativa oficial do Node.js (retorna 4 para IPv4, 6 para IPv6, 0 para inválido)
+  if (typeof net?.isIP === 'function') {
+    return net.isIP(trimmed) !== 0;
+  }
+
+  // Fallback defensivo para runtimes alternativos
   const ipv4Regex =
     /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
   if (ipv4Regex.test(trimmed)) return true;
 
-  // IPv6 canônico ou compactado
+  // Regex tolerante para IPv6 (incluindo :: em qualquer posição)
   const ipv6Regex =
-    /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$/;
+    /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
   return ipv6Regex.test(trimmed);
 }
 

@@ -323,10 +323,33 @@ assert.strictEqual(
 );
 console.log('  -> Fallback controlado restrito a desenvolvimento/teste: OK');
 
-// 4.6 Sanitização contra injeções sintáticas em cabeçalhos de IP
+// 4.6 Validação rigorosa de IPv4 e IPv6 (nativa via net.isIP) e descarte de injeções sintáticas
 assert.strictEqual(isValidIp('203.0.113.195'), true, 'IPv4 válido deve ser reconhecido.');
-assert.strictEqual(isValidIp('2001:db8::1'), true, 'IPv6 válido deve ser reconhecido.');
+assert.strictEqual(isValidIp('192.168.1.1'), true, 'IPv4 privado deve ser reconhecido.');
+assert.strictEqual(isValidIp('127.0.0.1'), true, 'IPv4 loopback deve ser reconhecido.');
+assert.strictEqual(isValidIp('8.8.8.8'), true, 'IPv4 público deve ser reconhecido.');
+
+// IPv6 em formatos canônico, compactado e mapeado (RFC 4291 / RFC 5952)
+assert.strictEqual(isValidIp('2001:db8::1'), true, 'IPv6 compactado com :: no meio deve ser reconhecido.');
+assert.strictEqual(isValidIp('2001:0db8:85a3:0000:0000:8a2e:0370:7334'), true, 'IPv6 completo de 8 grupos deve ser reconhecido.');
+assert.strictEqual(isValidIp('2001:db8:85a3::8a2e:370:7334'), true, 'IPv6 compactado com grupos múltiplos deve ser reconhecido.');
+assert.strictEqual(isValidIp('::1'), true, 'IPv6 loopback (::1) deve ser reconhecido.');
+assert.strictEqual(isValidIp('::'), true, 'IPv6 unspecified (::) deve ser reconhecido.');
+assert.strictEqual(isValidIp('fe80::1ff:fe23:4567:890a'), true, 'IPv6 link-local deve ser reconhecido.');
+assert.strictEqual(isValidIp('::ffff:192.0.2.1'), true, 'IPv6 IPv4-mapped deve ser reconhecido.');
+
+// Entradas maliciosas, corrompidas ou fora dos padrões RFC
 assert.strictEqual(isValidIp('DROP TABLE users;--'), false, 'Injeção SQL não é IP válido.');
+assert.strictEqual(isValidIp('<script>alert(1)</script>'), false, 'Injeção XSS não é IP válido.');
+assert.strictEqual(isValidIp('256.0.0.1'), false, 'IPv4 com octeto > 255 deve ser rejeitado.');
+assert.strictEqual(isValidIp('1.2.3.4.5'), false, 'IPv4 com 5 octetos deve ser rejeitado.');
+assert.strictEqual(isValidIp('2001:xyz::1'), false, 'IPv6 com caracteres hexadecimais inválidos deve ser rejeitado.');
+assert.strictEqual(isValidIp('127.0.0.1:8080'), false, 'IP com porta anexada deve ser rejeitado para sanitização.');
+assert.strictEqual(isValidIp(''), false, 'String vazia deve ser rejeitada.');
+// @ts-expect-error testando tipo incorreto em runtime
+assert.strictEqual(isValidIp(null), false, 'Valor nulo deve ser rejeitado.');
+// @ts-expect-error testando tipo incorreto em runtime
+assert.strictEqual(isValidIp(undefined), false, 'Valor indefinido deve ser rejeitado.');
 const headersInjection = new Headers({
   'x-real-ip': 'DROP TABLE users;--',
   'x-forwarded-for': '<script>alert(1)</script>, 192.0.2.1',
