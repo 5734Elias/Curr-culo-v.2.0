@@ -5,6 +5,8 @@ import {
   UpdateCertificateInput,
   CreateSkillInput,
   UpdateSkillInput,
+  CreateProjectInput,
+  UpdateProjectInput,
 } from '@/schemas/cms';
 import { COURSES } from '@/data/courses';
 import { PROJECTS } from '@/data/projects';
@@ -81,6 +83,31 @@ export interface AdminSkillRecord {
 export interface SkillFilters {
   search?: string;
   category?: string;
+  status?: 'all' | 'published' | 'draft';
+}
+
+export interface AdminProjectRecord {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  context: string;
+  problem: string;
+  solution: string;
+  architecture: string[];
+  technologies: string[];
+  securityControls: string[];
+  testing: string[];
+  outcomes: Array<{ label: string; value: string; verified?: boolean }>;
+  links: Array<{ label: string; url: string }>;
+  published: boolean;
+  displayOrder: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ProjectFilters {
+  search?: string;
   status?: 'all' | 'published' | 'draft';
 }
 
@@ -962,6 +989,312 @@ export async function deleteSkillAdmin(
       data: {
         action: 'DELETE_SKILL',
         entityType: 'Skill',
+        entityId: id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { id },
+      },
+    });
+    return true;
+  }
+
+  return true;
+}
+
+/**
+ * Consulta administrativa de projetos com filtros e fallback.
+ */
+export async function getAllProjectsAdmin(
+  filters: ProjectFilters = {}
+): Promise<{ projects: AdminProjectRecord[]; total: number; databaseConnected: boolean }> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    try {
+      const where: Record<string, unknown> = {};
+
+      if (filters.status === 'published') {
+        where.published = true;
+      } else if (filters.status === 'draft') {
+        where.published = false;
+      }
+
+      if (filters.search?.trim()) {
+        const query = filters.search.trim();
+        where.OR = [
+          { title: { contains: query, mode: 'insensitive' } },
+          { summary: { contains: query, mode: 'insensitive' } },
+          { slug: { contains: query, mode: 'insensitive' } },
+        ];
+      }
+
+      const records = await prisma.project.findMany({
+        where,
+        orderBy: { displayOrder: 'asc' },
+      });
+
+      return {
+        projects: records.map((p) => ({
+          id: p.id,
+          slug: p.slug,
+          title: p.title,
+          summary: p.summary,
+          context: p.context,
+          problem: p.problem,
+          solution: p.solution,
+          architecture: p.architecture as unknown as string[],
+          technologies: p.technologies as unknown as string[],
+          securityControls: p.securityControls as unknown as string[],
+          testing: p.testing as unknown as string[],
+          outcomes: p.outcomes as unknown as AdminProjectRecord['outcomes'],
+          links: p.links as unknown as AdminProjectRecord['links'],
+          published: p.published,
+          displayOrder: p.displayOrder,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+        })),
+        total: records.length,
+        databaseConnected: true,
+      };
+    } catch (err) {
+      console.warn('[CMS_SERVICE] Erro ao consultar projetos no banco para o admin:', err);
+    }
+  }
+
+  // Fallback nos projetos estáticos
+  let staticProjects: AdminProjectRecord[] = PROJECTS.map((p, idx) => ({
+    id: `static-project-${p.slug}`,
+    slug: p.slug,
+    title: p.title,
+    summary: p.summary,
+    context: p.context,
+    problem: p.problem,
+    solution: p.solution,
+    architecture: p.architecture,
+    technologies: p.technologies,
+    securityControls: p.securityControls,
+    testing: p.testing,
+    outcomes: p.outcomes,
+    links: p.links,
+    published: true,
+    displayOrder: idx,
+  }));
+
+  if (filters.status === 'draft') {
+    staticProjects = [];
+  }
+  if (filters.search?.trim()) {
+    const q = filters.search.toLowerCase().trim();
+    staticProjects = staticProjects.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.summary.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q)
+    );
+  }
+
+  return {
+    projects: staticProjects,
+    total: staticProjects.length,
+    databaseConnected: false,
+  };
+}
+
+/**
+ * Criação administrativa de projeto / estudo de caso.
+ */
+export async function createProjectAdmin(
+  input: CreateProjectInput,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<AdminProjectRecord> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    const record = await prisma.project.create({
+      data: {
+        slug: input.slug,
+        title: input.title,
+        summary: input.summary,
+        context: input.context,
+        problem: input.problem,
+        solution: input.solution,
+        architecture: input.architecture,
+        technologies: input.technologies,
+        securityControls: input.securityControls,
+        testing: input.testing,
+        outcomes: input.outcomes,
+        links: input.links,
+        published: input.published,
+        displayOrder: input.displayOrder,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'CREATE_PROJECT',
+        entityType: 'Project',
+        entityId: record.id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { slug: record.slug, title: record.title },
+      },
+    });
+
+    return {
+      id: record.id,
+      slug: record.slug,
+      title: record.title,
+      summary: record.summary,
+      context: record.context,
+      problem: record.problem,
+      solution: record.solution,
+      architecture: record.architecture as unknown as string[],
+      technologies: record.technologies as unknown as string[],
+      securityControls: record.securityControls as unknown as string[],
+      testing: record.testing as unknown as string[],
+      outcomes: record.outcomes as unknown as AdminProjectRecord['outcomes'],
+      links: record.links as unknown as AdminProjectRecord['links'],
+      published: record.published,
+      displayOrder: record.displayOrder,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  return {
+    id: `local-mock-${Date.now()}`,
+    ...input,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+/**
+ * Atualização administrativa de projeto.
+ */
+export async function updateProjectAdmin(
+  id: string,
+  input: UpdateProjectInput,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<AdminProjectRecord | null> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    const record = await prisma.project.update({
+      where: { id },
+      data: {
+        ...(input.slug !== undefined ? { slug: input.slug } : {}),
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.summary !== undefined ? { summary: input.summary } : {}),
+        ...(input.context !== undefined ? { context: input.context } : {}),
+        ...(input.problem !== undefined ? { problem: input.problem } : {}),
+        ...(input.solution !== undefined ? { solution: input.solution } : {}),
+        ...(input.architecture !== undefined ? { architecture: input.architecture } : {}),
+        ...(input.technologies !== undefined ? { technologies: input.technologies } : {}),
+        ...(input.securityControls !== undefined ? { securityControls: input.securityControls } : {}),
+        ...(input.testing !== undefined ? { testing: input.testing } : {}),
+        ...(input.outcomes !== undefined ? { outcomes: input.outcomes } : {}),
+        ...(input.links !== undefined ? { links: input.links } : {}),
+        ...(input.published !== undefined ? { published: input.published } : {}),
+        ...(input.displayOrder !== undefined ? { displayOrder: input.displayOrder } : {}),
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE_PROJECT',
+        entityType: 'Project',
+        entityId: id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { updatedFields: Object.keys(input) },
+      },
+    });
+
+    return {
+      id: record.id,
+      slug: record.slug,
+      title: record.title,
+      summary: record.summary,
+      context: record.context,
+      problem: record.problem,
+      solution: record.solution,
+      architecture: record.architecture as unknown as string[],
+      technologies: record.technologies as unknown as string[],
+      securityControls: record.securityControls as unknown as string[],
+      testing: record.testing as unknown as string[],
+      outcomes: record.outcomes as unknown as AdminProjectRecord['outcomes'],
+      links: record.links as unknown as AdminProjectRecord['links'],
+      published: record.published,
+      displayOrder: record.displayOrder,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Alternância rápida de publicação de projeto.
+ */
+export async function toggleProjectPublishAdmin(
+  id: string,
+  published: boolean,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<boolean> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    await prisma.project.update({
+      where: { id },
+      data: { published },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'TOGGLE_PROJECT_PUBLISHED',
+        entityType: 'Project',
+        entityId: id,
+        adminEmail,
+        adminSub,
+        ipHash,
+        details: { published },
+      },
+    });
+    return true;
+  }
+
+  return true;
+}
+
+/**
+ * Exclusão administrativa de projeto.
+ */
+export async function deleteProjectAdmin(
+  id: string,
+  adminEmail: string,
+  adminSub: string,
+  ipHash: string = 'unknown'
+): Promise<boolean> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (isDbReady) {
+    await prisma.project.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'DELETE_PROJECT',
+        entityType: 'Project',
         entityId: id,
         adminEmail,
         adminSub,

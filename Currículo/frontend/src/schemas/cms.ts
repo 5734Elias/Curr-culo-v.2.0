@@ -102,3 +102,71 @@ export type CreateSkillInput = z.infer<typeof CreateSkillSchema>;
 export const UpdateSkillSchema = CreateSkillSchema.partial();
 export type UpdateSkillInput = z.infer<typeof UpdateSkillSchema>;
 
+/**
+ * Schema para Criação de Projeto / Estudo de Caso.
+ */
+export const CreateProjectSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .min(3, 'O slug deve ter pelo menos 3 caracteres.')
+    .max(100, 'O slug não pode exceder 100 caracteres.')
+    .regex(/^[a-z0-9-]+$/, 'O slug deve conter apenas letras minúsculas, números e hífens.'),
+  title: z
+    .string()
+    .trim()
+    .min(3, 'O título deve ter pelo menos 3 caracteres.')
+    .max(180, 'O título não pode exceder 180 caracteres.'),
+  summary: z
+    .string()
+    .trim()
+    .min(10, 'O resumo deve ter pelo menos 10 caracteres.')
+    .max(400, 'O resumo não pode exceder 400 caracteres.'),
+  context: z
+    .string()
+    .trim()
+    .min(10, 'O contexto deve ter pelo menos 10 caracteres.')
+    .max(1500, 'O contexto não pode exceder 1500 caracteres.'),
+  problem: z
+    .string()
+    .trim()
+    .min(10, 'A definição do problema deve ter pelo menos 10 caracteres.')
+    .max(1500, 'A definição do problema não pode exceder 1500 caracteres.'),
+  solution: z
+    .string()
+    .trim()
+    .min(10, 'A solução desenvolvida deve ter pelo menos 10 caracteres.')
+    .max(1500, 'A solução desenvolvida não pode exceder 1500 caracteres.'),
+  architecture: z.array(z.string().trim().min(2)).default([]),
+  technologies: z.array(z.string().trim().min(1)).min(1, 'Informe pelo menos uma tecnologia.'),
+  securityControls: z.array(z.string().trim().min(2)).default([]),
+  testing: z.array(z.string().trim().min(2)).default([]),
+  outcomes: z
+    .array(
+      z.object({
+        label: z.string().trim().min(2),
+        value: z.string().trim().min(2),
+        verified: z.boolean().default(false),
+      })
+    )
+    .default([]),
+  links: z
+    .array(
+      z.object({
+        label: z.string().trim().min(2),
+        url: z.string().trim().url('Informe uma URL válida.'),
+      })
+    )
+    .default([]),
+  displayOrder: z.number().int().default(0),
+  published: z.boolean().default(true),
+});
+export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
+
+/**
+ * Schema para Atualização de Projeto.
+ */
+export const UpdateProjectSchema = CreateProjectSchema.partial();
+export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
+
+
