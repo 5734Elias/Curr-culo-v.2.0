@@ -194,14 +194,13 @@ Ao alterar o status de um certificado para "Publicado":
 
 ## 9. Plano de Execução por Fases
 
-- [x] **Fase 1: Auditoria da arquitetura atual e plano de migração.** (Concluída nesta etapa)
-- [x] **Fase 2: Banco de dados e persistência (Prisma + Migrations + Seeder idempotente de 65 cursos).** (Concluída nesta etapa)
-- [x] **Fase 3: Autenticação Google OIDC e proteção administrativa (Auth.js / Jose + Middleware de sessão).** (Concluída nesta etapa)
-- [x] **Fase 4: Dashboard administrativo (`/admin`) e Módulo de Certificados (`/admin/certificates`).** (Concluída nesta etapa)
-- [ ] **Fase 5: Módulo de Habilidades e Competências Técnicas (`/admin/skills`).**
-- [ ] **Fase 6: CRUD de habilidades e formação (`/admin/skills` e `/admin/education`).**
-- [ ] **Fase 7: Gerenciamento de projetos e mídia (`/admin/projects`).**
-- [ ] **Fase 8: Integração do conteúdo dinâmico ao portfólio público com revalidação sob demanda.**
-- [ ] **Fase 9: Hardening, QA e testes de segurança automatizados.**
-- [ ] **Fase 10: Homologação na Vercel e publicação autorizada na branch `main`.**
+- [x] **Fase 1: Auditoria da arquitetura atual e plano de migração.** (Concluída)
+- [x] **Fase 2: Banco de dados e persistência (Prisma + Migrations + Seeder idempotente de 65 cursos).** (Concluída)
+- [x] **Fase 3: Autenticação Google OIDC e proteção administrativa (Zero-Trust RBAC + Sessão JWT).** (Concluída)
+- [x] **Fase 4: Dashboard administrativo (`/admin`) e Módulo de Certificados (`/admin/certificates`).** (Concluída)
+- [x] **Fase 5: Módulo de Habilidades e Competências Técnicas (`/admin/skills`).** (Concluída)
+- [x] **Fase 6: Módulo de Projetos e Upload Seguro de Mídia (`/admin/projects` e `/api/admin/media/upload`).** (Concluída)
+- [x] **Fase 7: Integração dinâmica do portfólio público com revalidação sob demanda (ISR).** (Concluída)
+- [x] **Fase 8: Hardening final, QA e verificação ponta a ponta de cibersegurança.** (Concluída nesta etapa)
+- [ ] **Fase 9: Homologação na Vercel e publicação autorizada na branch `main`.**
 
