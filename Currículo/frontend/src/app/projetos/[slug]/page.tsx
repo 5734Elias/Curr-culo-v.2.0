@@ -7,7 +7,7 @@ import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { PROJECTS } from '@/data/projects';
+import { getPublishedProjects } from '@/services/cmsDataService';
 import { PROFILE } from '@/data/profile';
 import { getSiteUrl } from '@/lib/siteConfig';
 import { CheckCircle, ExternalLink, Server, Lock, TestTube, ChevronRight, ShieldCheck } from 'lucide-react';
@@ -17,14 +17,16 @@ interface ProjectSlugPageProps {
 }
 
 export async function generateStaticParams() {
-  return PROJECTS.map((p) => ({
+  const projects = await getPublishedProjects();
+  return projects.map((p) => ({
     slug: p.slug,
   }));
 }
 
 export async function generateMetadata({ params }: ProjectSlugPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const project = PROJECTS.find((p) => p.slug === slug);
+  const projects = await getPublishedProjects();
+  const project = projects.find((p) => p.slug === slug);
   if (!project) return { title: 'Projeto Não Encontrado' };
 
   return {
@@ -40,7 +42,8 @@ export async function generateMetadata({ params }: ProjectSlugPageProps): Promis
 
 export default async function ProjectDetailPage({ params }: ProjectSlugPageProps) {
   const { slug } = await params;
-  const project = PROJECTS.find((p) => p.slug === slug);
+  const projects = await getPublishedProjects();
+  const project = projects.find((p) => p.slug === slug);
 
   if (!project) {
     notFound();

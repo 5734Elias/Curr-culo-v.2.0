@@ -8,14 +8,18 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { PROFILE } from '@/data/profile';
-import { PROJECTS } from '@/data/projects';
-import { COURSES } from '@/data/courses';
+import { getPublishedProjects, getPublishedCertificates } from '@/services/cmsDataService';
 import { Terminal, Shield, Code, Cpu, ArrowRight, CheckCircle, Database } from 'lucide-react';
 
-export default function HomePage() {
-  const featuredProjects = PROJECTS.slice(0, 3);
+export default async function HomePage() {
+  const [projects, courses] = await Promise.all([
+    getPublishedProjects(),
+    getPublishedCertificates(),
+  ]);
+
+  const featuredProjects = projects.slice(0, 3);
   // Priorizar até 4 cursos em destaque (SENAI, Ka Solution, Fundação Bradesco)
-  const featuredCourses = COURSES.filter((c) => c.issuerPriority === 'featured').slice(0, 4);
+  const featuredCourses = courses.filter((c) => c.issuerPriority === 'featured').slice(0, 4);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0d1515] text-[#dce4e4]">
@@ -44,7 +48,7 @@ export default function HomePage() {
                 {/* Indicadores Principais */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#3a494b]/60 font-mono">
                   <div>
-                    <span className="text-2xl font-bold text-[#00f2ff]">{COURSES.length}</span>
+                    <span className="text-2xl font-bold text-[#00f2ff]">{courses.length}</span>
                     <span className="text-[11px] text-[#b9cacb] block">Cursos e Certificados</span>
                   </div>
                   <div>
@@ -252,7 +256,7 @@ export default function HomePage() {
             />
             <Link href="/formacao">
               <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Ver Todas as Certificações ({COURSES.length})
+                Ver Todas as Certificações ({courses.length})
               </Button>
             </Link>
           </div>
