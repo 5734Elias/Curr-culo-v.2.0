@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+      - 'feat/**'
+      - feat/admin-cms-panel
       - feat/whatsapp-telegram-contact
   pull_request:
     branches:
