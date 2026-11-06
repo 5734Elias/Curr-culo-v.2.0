@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth/serverAuth';
+import { getEnvironmentDiagnostics } from '@/lib/auth/config';
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getAdminSession(req);
+    const diagnostics = getEnvironmentDiagnostics();
 
     if (!session) {
       return NextResponse.json({
         authenticated: false,
+        diagnostics: {
+          subsystems: diagnostics.subsystems,
+          authDiagnostic: diagnostics.authDiagnostic,
+          variables: diagnostics.variables,
+        },
       });
     }
 
@@ -18,6 +25,11 @@ export async function GET(req: NextRequest) {
         name: session.name,
         avatarUrl: session.avatarUrl,
         role: session.role,
+      },
+      diagnostics: {
+        subsystems: diagnostics.subsystems,
+        authDiagnostic: diagnostics.authDiagnostic,
+        variables: diagnostics.variables,
       },
     });
   } catch (err) {

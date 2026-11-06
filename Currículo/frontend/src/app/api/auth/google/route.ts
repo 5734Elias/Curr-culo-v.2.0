@@ -20,21 +20,31 @@ export async function GET(req: NextRequest) {
 
   const config = getAuthConfig();
 
-  // 2. Se credenciais do Google não foram configuradas, redireciona informando a ausência de configuração
-  if (!config.clientId || !config.clientSecret || !config.authSecret) {
-    console.warn('[AUTH] Tentativa de login Google com variáveis OAuth pendentes.');
-    const errorUrl = new URL('/admin/login?error=ConfigurationError', req.url);
+  // 2. Validação separada da URL de callback OAuth
+  if (!config.isCallbackValid) {
+    console.warn('[AUTH] URL de callback OAuth inválida na configuração.');
+    const errorUrl = new URL('/admin/login?error=InvalidCallback', req.url);
     return NextResponse.redirect(errorUrl);
   }
 
-  // 3. Em produção, exige que GOOGLE_ADMIN_SUB esteja previamente configurado (Zero Trust)
-  if (process.env.NODE_ENV === 'production' && !config.adminSub) {
+  // 3. Validação separada das credenciais OAuth e segredo de sessão (independente do banco PostgreSQL)
+  if (!config.isOAuthConfigured || !config.isAuthSecretValid) {
+    console.warn('[AUTH] Tentativa de login Google com variáveis OAuth/AUTH_SECRET pendentes.');
+    const errorUrl = new URL(
+      '/admin/login?error=ConfigurationError&reason=OAuthNotConfigured',
+      req.url
+    );
+    return NextResponse.redirect(errorUrl);
+  }
+
+  // 4. Em produção, exige que GOOGLE_ADMIN_SUB esteja previamente configurado (Zero Trust)
+  if (process.env.NODE_ENV === 'production' && !config.isSubConfigured) {
     console.warn('[SECURITY] Tentativa de login em produção sem GOOGLE_ADMIN_SUB configurado.');
     const errorUrl = new URL('/admin/login?error=SubNotConfigured', req.url);
     return NextResponse.redirect(errorUrl);
   }
 
-  // 4. Gera estado criptográfico aleatório (CSRF) e par PKCE (S256)
+  // 5. Gera estado criptográfico aleatório (CSRF) e par PKCE (S256)
   const stateBytes = new Uint8Array(24);
   crypto.getRandomValues(stateBytes);
   const state = Buffer.from(stateBytes).toString('base64url');
@@ -66,6 +76,6 @@ export async function GET(req: NextRequest) {
     return response;
   } catch {
     console.error('[AUTH_ERROR] Erro ao construir URL de autenticação Google.');
-    return NextResponse.redirect(new URL('/admin/login?error=UnknownError', req.url));
+    return NextResponse.redirect(new URL('/admin/login?error=AuthenticationFailed', req.url));
   }
 }

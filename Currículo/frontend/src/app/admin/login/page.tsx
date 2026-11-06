@@ -4,13 +4,14 @@ import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Shield, Lock, AlertTriangle, CheckCircle2, ArrowLeft, KeyRound } from 'lucide-react';
+import { resolveLoginErrorDetails } from '@/lib/auth/config';
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const reason = searchParams.get('reason');
   const logout = searchParams.get('logout');
 
-  // Mapeamento semântico de erros para mensagens amigáveis em português
   let alertBanner = null;
 
   if (logout === 'success') {
@@ -27,64 +28,21 @@ function LoginContent() {
       </div>
     );
   } else if (error) {
-    let errorTitle = 'Acesso Não Autorizado';
-    let errorMessage = 'Não foi possível autenticar sua conta Google.';
-
-    switch (error) {
-      case 'AccessDenied':
-        errorTitle = 'Acesso Negado (Zero Trust)';
-        errorMessage =
-          'Esta conta Google não está autorizada a administrar este portfólio. Apenas a conta Google oficial e o identificador imutável (sub) do proprietário possuem permissão.';
-        break;
-      case 'SubNotConfigured':
-        errorTitle = 'Identificador Google (sub) Pendente';
-        errorMessage =
-          'Por segurança Zero Trust, o login em produção exige que o identificador imutável GOOGLE_ADMIN_SUB esteja previamente configurado nas variáveis de ambiente.';
-        break;
-      case 'RateLimitExceeded':
-        errorTitle = 'Muitas Tentativas de Autenticação';
-        errorMessage =
-          'O limite de tentativas de login para o seu endereço IP foi atingido temporariamente. Aguarde alguns minutos antes de tentar novamente.';
-        break;
-      case 'ConfigurationError':
-        errorTitle = 'Configuração Pendente';
-        errorMessage =
-          'As credenciais do Google OAuth ou do banco de dados ainda não foram configuradas nas variáveis de ambiente do servidor.';
-        break;
-      case 'SessionExpired':
-        errorTitle = 'Sessão Expirada';
-        errorMessage = 'Sua sessão administrativa expirou. Por favor, faça login novamente.';
-        break;
-      case 'StateMismatch':
-        errorTitle = 'Falha de Validação CSRF';
-        errorMessage = 'Ocorreu uma divergência de segurança na validação de estado. Tente novamente.';
-        break;
-      case 'PkceMissing':
-        errorTitle = 'Falha de Validação PKCE';
-        errorMessage =
-          'O verificador criptográfico PKCE expirou ou estava ausente na requisição. Inicie o login novamente.';
-        break;
-      case 'Cancelled':
-        errorTitle = 'Login Cancelado';
-        errorMessage = 'O procedimento de login com a conta Google foi cancelado.';
-        break;
-      default:
-        errorTitle = 'Falha na Autenticação';
-        errorMessage = 'Ocorreu um erro inesperado ao processar a autenticação. Tente novamente.';
-    }
-
-    alertBanner = (
-      <div
-        role="alert"
-        className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-950/40 p-4 text-red-200"
-      >
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
-        <div>
-          <p className="font-semibold text-red-300">{errorTitle}</p>
-          <p className="text-sm text-red-200/80">{errorMessage}</p>
+    const details = resolveLoginErrorDetails(error, reason);
+    if (details) {
+      alertBanner = (
+        <div
+          role="alert"
+          className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-950/40 p-4 text-red-200"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+          <div>
+            <p className="font-semibold text-red-300">{details.title}</p>
+            <p className="text-sm text-red-200/80">{details.message}</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
   return (
@@ -145,7 +103,7 @@ function LoginContent() {
           <ul className="mt-2 space-y-1.5 pl-6 list-disc text-zinc-400">
             <li>Autenticação restrita exclusivamente à conta do proprietário.</li>
             <li>Tokens e sessões validados integralmente no servidor (HttpOnly / SameSite).</li>
-            <li>Proteção anti-CSRF e monitoramento de eventos em trilha de auditoria.</li>
+            <li>Proteção anti-CSRF, PKCE S256 e trilha de auditoria.</li>
           </ul>
         </div>
 
@@ -187,4 +145,3 @@ export default function AdminLoginPage() {
     </main>
   );
 }
-

@@ -4,6 +4,8 @@ import { SignJWT } from 'jose/jwt/sign';
 
 import {
   getAuthConfig,
+  getEnvironmentDiagnostics,
+  resolveLoginErrorDetails,
   OFFICIAL_ADMIN_EMAIL,
   PUBLIC_CONTACT_ONLY_EMAIL,
   SESSION_COOKIE_NAME,
@@ -281,7 +283,7 @@ if (prevClientId === undefined) {
 }
 console.log('  -> PKCE (S256) e buildGoogleAuthUrl validados com state e code_challenge: OK');
 
-// 5.1 Endpoint /api/auth/google sem credenciais completas
+// 5.1 Endpoint /api/auth/google sem credenciais completas (ConfigurationError / OAuthNotConfigured)
 const reqGoogleAuth = new NextRequest('http://localhost:3000/api/auth/google');
 const resGoogleAuth = await getGoogleAuth(reqGoogleAuth);
 assert.strictEqual(resGoogleAuth.status, 307);
@@ -291,7 +293,72 @@ assert(
     locationGoogle.includes('accounts.google.com'),
   'Endpoint /api/auth/google deve tratar falta de credenciais ou redirecionar ao Google.'
 );
-console.log('  -> /api/auth/google redireciona com integridade sem quebrar: OK');
+
+// 5.1b Diagnósticos Separados (OAuth vs. SUB vs. Callback vs. Database vs. Storage)
+const oauthErr = resolveLoginErrorDetails('ConfigurationError', 'OAuthNotConfigured');
+assert(oauthErr && oauthErr.category === 'OAUTH_CONFIG');
+assert(
+  !oauthErr.message.toLowerCase().includes('banco de dados'),
+  'ConfigurationError de OAuth JAMAIS deve culpar o banco de dados PostgreSQL.'
+);
+const subErr = resolveLoginErrorDetails('SubNotConfigured');
+assert(subErr && subErr.category === 'SUB_CONFIG');
+const cbErr = resolveLoginErrorDetails('InvalidCallback');
+assert(cbErr && cbErr.category === 'CALLBACK_CONFIG');
+const dbErr = resolveLoginErrorDetails('DatabaseUnavailable');
+assert(dbErr && dbErr.category === 'DATABASE_STATUS');
+const storageErr = resolveLoginErrorDetails('StorageUnavailable');
+assert(storageErr && storageErr.category === 'STORAGE_STATUS');
+
+// 5.1c Simulação completa com OAuth configurado e Banco Indisponível (NÃO deve dar ConfigurationError!)
+const savedEnv = {
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  GOOGLE_ADMIN_SUB: process.env.GOOGLE_ADMIN_SUB,
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  DATABASE_URL: process.env.DATABASE_URL,
+};
+
+process.env.GOOGLE_CLIENT_ID = '1234567890-eliascurriculo.apps.googleusercontent.com';
+process.env.GOOGLE_CLIENT_SECRET = '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2345';
+process.env.GOOGLE_ADMIN_SUB = '109876543210987654321';
+delete process.env.DATABASE_URL; // Mesmo sem DATABASE_URL, o OAuth deve funcionar integralmente!
+
+const diagReady = getEnvironmentDiagnostics();
+assert.strictEqual(diagReady.variables.GOOGLE_CLIENT_ID, 'CONFIGURADA');
+assert.strictEqual(diagReady.variables.GOOGLE_CLIENT_SECRET, 'CONFIGURADA');
+assert.strictEqual(diagReady.variables.GOOGLE_ADMIN_EMAIL, 'CONFIGURADA');
+assert.strictEqual(diagReady.variables.GOOGLE_ADMIN_SUB, 'CONFIGURADA');
+assert.strictEqual(diagReady.variables.NEXTAUTH_URL, 'CONFIGURADA');
+assert.strictEqual(diagReady.variables.DATABASE_URL, 'AUSENTE');
+assert.strictEqual(diagReady.authDiagnostic, 'READY');
+
+const reqGoogleReady = new NextRequest('http://localhost:3000/api/auth/google');
+const resGoogleReady = await getGoogleAuth(reqGoogleReady);
+assert.strictEqual(resGoogleReady.status, 307);
+const locReady = resGoogleReady.headers.get('location') || '';
+assert(
+  locReady.startsWith('https://accounts.google.com/o/oauth2/v2/auth'),
+  'Com OAuth configurado, /api/auth/google deve redirecionar diretamente ao Google mesmo sem DATABASE_URL.'
+);
+assert(!locReady.includes('ConfigurationError'));
+
+// Teste de InvalidCallback quando NEXTAUTH_URL é malformada
+process.env.NEXTAUTH_URL = 'not-a-valid-url';
+const reqInvalidCb = new NextRequest('http://localhost:3000/api/auth/google');
+const resInvalidCb = await getGoogleAuth(reqInvalidCb);
+assert.strictEqual(resInvalidCb.status, 307);
+assert(
+  resInvalidCb.headers.get('location')?.includes('/admin/login?error=InvalidCallback'),
+  'URL base malformada deve redirecionar com InvalidCallback.'
+);
+
+// Restaura variáveis originais
+for (const [k, v] of Object.entries(savedEnv)) {
+  if (v === undefined) delete process.env[k];
+  else process.env[k] = v;
+}
+console.log('  -> Diagnósticos separados (OAuth, SUB, Callback, DB, Storage) e independência do banco validados: OK');
 
 // 5.2 Callback /api/auth/callback/google com cancelamento do Google
 const reqCancelled = new NextRequest('http://localhost:3000/api/auth/callback/google?error=access_denied');
