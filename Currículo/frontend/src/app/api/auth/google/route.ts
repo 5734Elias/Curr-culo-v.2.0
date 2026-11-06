@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthConfig, OAUTH_STATE_COOKIE_NAME } from '@/lib/auth/config';
-import { buildGoogleAuthUrl } from '@/lib/auth/googleOidc';
+import {
+  getAuthConfig,
+  OAUTH_STATE_COOKIE_NAME,
+  OAUTH_PKCE_COOKIE_NAME,
+} from '@/lib/auth/config';
+import { buildGoogleAuthUrl, generatePkcePair } from '@/lib/auth/googleOidc';
 import { extractClientIp, hashIpForPrivacy, checkAuthRateLimit } from '@/lib/rateLimit';
 
 export async function GET(req: NextRequest) {
@@ -30,22 +34,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(errorUrl);
   }
 
-  // 4. Gera estado criptográfico aleatório para proteção contra CSRF
+  // 4. Gera estado criptográfico aleatório (CSRF) e par PKCE (S256)
   const stateBytes = new Uint8Array(24);
   crypto.getRandomValues(stateBytes);
   const state = Buffer.from(stateBytes).toString('base64url');
+  const { codeVerifier, codeChallenge } = generatePkcePair();
 
   try {
-    const authUrl = buildGoogleAuthUrl(state);
+    const authUrl = buildGoogleAuthUrl(state, codeChallenge);
     const response = NextResponse.redirect(authUrl);
+    const isProd = process.env.NODE_ENV === 'production';
 
     // Grava o cookie temporário de validação de estado (10 minutos)
     response.cookies.set(OAUTH_STATE_COOKIE_NAME, state, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProd,
       sameSite: 'lax',
       path: '/',
-      maxAge: 600, // 10 minutos
+      maxAge: 600,
+    });
+
+    // Grava o cookie temporário do verificador PKCE (10 minutos)
+    response.cookies.set(OAUTH_PKCE_COOKIE_NAME, codeVerifier, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 600,
     });
 
     return response;

@@ -65,8 +65,10 @@ export function CertificatesClientManager({ initialCertificates, databaseConnect
     skills: '',
     credentialCode: '',
     verificationUrl: '',
+    credentialAssetUrl: '',
     published: true,
   });
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   // Filtragem Dinâmica
   const filteredList = useMemo(() => {
@@ -115,6 +117,7 @@ export function CertificatesClientManager({ initialCertificates, databaseConnect
       skills: '',
       credentialCode: '',
       verificationUrl: '',
+      credentialAssetUrl: '',
       published: true,
     });
     setIsModalOpen(true);
@@ -134,9 +137,48 @@ export function CertificatesClientManager({ initialCertificates, databaseConnect
       skills: cert.skills.join(', '),
       credentialCode: cert.credentialCode || '',
       verificationUrl: cert.verificationUrl || '',
+      credentialAssetUrl: cert.credentialAssetUrl || '',
       published: cert.published,
     });
     setIsModalOpen(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingFile(true);
+    setFeedbackMessage(null);
+
+    try {
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('isPublic', String(formData.published));
+
+      const res = await fetch('/api/admin/media/upload', {
+        method: 'POST',
+        body: uploadData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.asset?.url) {
+        throw new Error(data.error || 'Falha ao enviar arquivo.');
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        credentialAssetUrl: data.asset.url,
+      }));
+      setFeedbackMessage({
+        type: 'success',
+        text: `Comprovante "${data.asset.fileName}" gravado e verificado com sucesso!`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar comprovante.';
+      setFeedbackMessage({ type: 'error', text: msg });
+    } finally {
+      setIsUploadingFile(false);
+    }
   };
 
   // Alternar Publicado / Rascunho
@@ -206,6 +248,7 @@ export function CertificatesClientManager({ initialCertificates, databaseConnect
       skills: skillsArray,
       credentialCode: formData.credentialCode.trim() || undefined,
       verificationUrl: formData.verificationUrl.trim() || undefined,
+      credentialAssetUrl: formData.credentialAssetUrl.trim() || undefined,
       published: formData.published,
     };
 
@@ -648,6 +691,27 @@ export function CertificatesClientManager({ initialCertificates, databaseConnect
                     placeholder="https://..."
                     className="mt-1.5 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Upload de Comprovante PDF / Imagem */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-300">
+                  Comprovante do Certificado (PDF, PNG, JPEG ou WebP — máx. 5 MB)
+                </label>
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg,image/webp"
+                    onChange={handleFileUpload}
+                    disabled={isUploadingFile}
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyan-950 file:px-3 file:py-1 file:text-xs file:font-medium file:text-cyan-300 hover:file:bg-cyan-900"
+                  />
+                  {formData.credentialAssetUrl && (
+                    <span className="truncate font-mono text-[11px] text-emerald-400">
+                      Gravado: {formData.credentialAssetUrl}
+                    </span>
+                  )}
                 </div>
               </div>
 

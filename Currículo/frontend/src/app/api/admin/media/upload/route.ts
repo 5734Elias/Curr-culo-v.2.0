@@ -4,6 +4,11 @@ import { getAdminSession } from '@/lib/auth/serverAuth';
 import { prisma, isDatabaseAvailable } from '@/lib/prisma';
 import { extractClientIp, hashIpForPrivacy } from '@/lib/rateLimit';
 import { sanitizeFileName } from '@/schemas/cms';
+import {
+  persistMediaFile,
+  deleteStoredMedia,
+  StorageUnavailableError,
+} from '@/services/mediaStorageService';
 
 // Limite máximo defensivo de 5 MB
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -91,9 +96,9 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
-    if (!file) {
+    if (!file || file.size === 0) {
       return NextResponse.json(
-        { error: 'Nenhum arquivo enviado no campo "file".' },
+        { error: 'Nenhum arquivo válido enviado no campo "file".' },
         { status: 400 }
       );
     }
@@ -131,7 +136,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Geração de Nome Seguro via UUIDv4 e Sanitização Multiplataforma do Nome Original
+    // 4. Controle de Visibilidade (documentos não publicados permanecem privados)
+    const rawIsPublic = formData.get('isPublic');
+    const rawPublished = formData.get('published');
+    const isPublic =
+      rawIsPublic !== null
+        ? String(rawIsPublic).toLowerCase() === 'true'
+        : rawPublished !== null
+          ? String(rawPublished).toLowerCase() === 'true'
+          : true;
+
+    // 5. Geração de Nome Seguro via UUIDv4 e Sanitização Multiplataforma do Nome Original
     const safeFileName = sanitizeFileName(file.name);
     const extensionMap: Record<string, string> = {
       'application/pdf': '.pdf',
@@ -141,59 +156,121 @@ export async function POST(req: NextRequest) {
     };
     const extension = extensionMap[file.type] || '';
     const storedKey = `${crypto.randomUUID()}${extension}`;
-    const publicUrl = `/uploads/${storedKey}`;
+
+    // 6. Gravação Real e Persistente com Verificação Pós-Escrita (Read-After-Write)
+    const persisted = await persistMediaFile({
+      storedKey,
+      fileName: safeFileName,
+      mimeType: file.type,
+      buffer: uint8Array,
+      isPublic,
+      uploadedByAdminSub: session.sub,
+    });
+
+    if (!persisted.verifiedReadAfterWrite) {
+      await deleteStoredMedia(storedKey, persisted.storageUrl).catch(() => undefined);
+      return NextResponse.json(
+        { error: 'Não foi possível confirmar a gravação íntegra do arquivo no armazenamento.' },
+        { status: 500 }
+      );
+    }
 
     const clientIp = extractClientIp(req.headers);
     const clientIpHash = hashIpForPrivacy(clientIp || '127.0.0.1');
 
-    // 5. Persistência de Metadados se o Banco estiver ativo
+    // 7. Persistência de Metadados no Banco com Rollback de Arquivo Órfão em Caso de Falha
+    const simulateDbFailure =
+      process.env.NODE_ENV !== 'production' &&
+      req.headers.get('x-test-simulate-db-failure') === 'true';
+
     const isDbReady = await isDatabaseAvailable();
-    let assetId = `mock-asset-${Date.now()}`;
+    let assetId = `asset-${storedKey.slice(0, 8)}`;
 
-    if (isDbReady) {
-      const record = await prisma.mediaAsset.create({
-        data: {
-          fileName: safeFileName,
-          storedKey,
-          mimeType: file.type,
-          sizeBytes: file.size,
-          assetType: file.type.startsWith('image/') ? 'image' : 'document',
-          url: publicUrl,
-          isPublic: true,
-          uploadedByAdminSub: session.sub,
-        },
-      });
-      assetId = record.id;
+    try {
+      if (simulateDbFailure) {
+        throw new Error('Falha simulada de persistência no banco de dados após upload.');
+      }
 
-      await prisma.auditLog.create({
-        data: {
-          action: 'UPLOAD_MEDIA_ASSET',
-          entityType: 'MediaAsset',
-          entityId: record.id,
-          adminEmail: session.email,
-          adminSub: 'verified-admin-sub',
-          ipHash: clientIpHash,
-          details: { fileName: safeFileName, storedKey, mimeType: file.type, sizeBytes: file.size },
+      if (isDbReady) {
+        const record = await prisma.mediaAsset.create({
+          data: {
+            fileName: safeFileName,
+            storedKey,
+            mimeType: file.type,
+            sizeBytes: file.size,
+            assetType: file.type.startsWith('image/') ? 'image' : 'document',
+            url: persisted.storageUrl.startsWith('https://')
+              ? persisted.storageUrl
+              : persisted.url,
+            isPublic,
+            uploadedByAdminSub: session.sub,
+          },
+        });
+        assetId = record.id;
+
+        await prisma.auditLog.create({
+          data: {
+            action: 'UPLOAD_MEDIA_ASSET',
+            entityType: 'MediaAsset',
+            entityId: record.id,
+            adminEmail: session.email,
+            adminSub: 'verified-admin-sub',
+            ipHash: clientIpHash,
+            details: {
+              fileName: safeFileName,
+              storedKey,
+              mimeType: file.type,
+              sizeBytes: file.size,
+              sha256: persisted.sha256,
+              isPublic,
+              storageProvider: persisted.storageProvider,
+            },
+          },
+        });
+      }
+    } catch (dbErr) {
+      // Limpeza imediata de arquivo órfão caso o registro de metadados falhe
+      await deleteStoredMedia(storedKey, persisted.storageUrl).catch(() => undefined);
+      console.error('[ADMIN_API] Falha ao registrar metadados do arquivo; arquivo órfão removido:', dbErr);
+      return NextResponse.json(
+        {
+          error: 'Falha ao registrar metadados do arquivo no banco de dados. O arquivo órfão foi removido com segurança.',
+          orphanCleaned: true,
         },
-      });
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Arquivo enviado e validado com sucesso!',
+        message: 'Arquivo gravado e verificado com sucesso no armazenamento persistente!',
         asset: {
           id: assetId,
           fileName: safeFileName,
           storedKey,
-          url: publicUrl,
+          url: persisted.url,
           mimeType: file.type,
           sizeBytes: file.size,
+          sha256: persisted.sha256,
+          isPublic: persisted.isPublic,
+          storageProvider: persisted.storageProvider,
+          verifiedReadAfterWrite: persisted.verifiedReadAfterWrite,
         },
       },
       { status: 201 }
     );
   } catch (err) {
+    if (err instanceof StorageUnavailableError) {
+      return NextResponse.json(
+        {
+          error:
+            'Serviço de armazenamento persistente indisponível. Configure BLOB_READ_WRITE_TOKEN no painel da Vercel.',
+        },
+        { status: 503 }
+      );
+    }
+
     console.error('[ADMIN_API] Erro ao processar upload:', err);
     return NextResponse.json(
       { error: 'Falha interna ao processar o arquivo enviado.' },

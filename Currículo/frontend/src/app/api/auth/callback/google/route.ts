@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   OAUTH_STATE_COOKIE_NAME,
+  OAUTH_PKCE_COOKIE_NAME,
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
 } from '@/lib/auth/config';
@@ -11,6 +12,11 @@ import {
 } from '@/lib/auth/googleOidc';
 import { createSessionToken } from '@/lib/auth/session';
 import { extractClientIp, hashIpForPrivacy, checkAuthRateLimit } from '@/lib/rateLimit';
+
+function clearOAuthHandshakeCookies(response: NextResponse): void {
+  response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+  response.cookies.delete(OAUTH_PKCE_COOKIE_NAME);
+}
 
 export async function GET(req: NextRequest) {
   // Identificação segura do IP para rate limiting e trilha de auditoria
@@ -23,7 +29,7 @@ export async function GET(req: NextRequest) {
     console.warn('[SECURITY] Rate limit atingido no callback Google OAuth.');
     const redirectUrl = new URL('/admin/login?error=RateLimitExceeded', req.url);
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    clearOAuthHandshakeCookies(response);
     return response;
   }
 
@@ -41,7 +47,7 @@ export async function GET(req: NextRequest) {
       req.url
     );
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    clearOAuthHandshakeCookies(response);
     return response;
   }
 
@@ -53,38 +59,48 @@ export async function GET(req: NextRequest) {
     console.warn('[SECURITY] Tentativa de OAuth com state inválido ou ausente (potencial CSRF).');
     const redirectUrl = new URL('/admin/login?error=StateMismatch', req.url);
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    clearOAuthHandshakeCookies(response);
     return response;
   }
 
-  // 3. Obtenção do código de autorização
+  // 3. Validação do verificador PKCE (RFC 7636)
+  const storedVerifier = req.cookies.get(OAUTH_PKCE_COOKIE_NAME)?.value;
+  if (!storedVerifier) {
+    console.warn('[SECURITY] Tentativa de callback OAuth sem verificador PKCE.');
+    const redirectUrl = new URL('/admin/login?error=PkceMissing', req.url);
+    const response = NextResponse.redirect(redirectUrl);
+    clearOAuthHandshakeCookies(response);
+    return response;
+  }
+
+  // 4. Obtenção do código de autorização
   const code = searchParams.get('code');
   if (!code) {
     console.warn('[AUTH] Requisição de callback sem código de autorização.');
     const redirectUrl = new URL('/admin/login?error=MissingCode', req.url);
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    clearOAuthHandshakeCookies(response);
     return response;
   }
 
   try {
-    // 4. Troca do código de autorização pelo token de ID do Google
-    const { id_token } = await exchangeCodeForTokens(code);
+    // 5. Troca do código de autorização pelo token de ID do Google com validação PKCE
+    const { id_token } = await exchangeCodeForTokens(code, storedVerifier);
     if (!id_token) {
       throw new Error('Google não retornou o id_token esperado.');
     }
 
-    // 5. Validação criptográfica do token com as chaves públicas do Google (JWKS)
+    // 6. Validação criptográfica do token com as chaves públicas do Google (JWKS)
     const googleProfile = await verifyGoogleIdToken(id_token);
     if (!googleProfile) {
       console.warn('[SECURITY] Token de ID do Google inválido ou rejeitado na verificação criptográfica.');
       const redirectUrl = new URL('/admin/login?error=InvalidToken', req.url);
       const response = NextResponse.redirect(redirectUrl);
-      response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+      clearOAuthHandshakeCookies(response);
       return response;
     }
 
-    // 6. Autorização estrita Zero Trust (e-mail verificado reis.elias.ribeiro@gmail.com e sub imutável)
+    // 7. Autorização estrita Zero Trust (e-mail verificado reis.elias.ribeiro@gmail.com e sub imutável)
     const authResult = await authorizeAdminUser(googleProfile, clientIpHash);
     if (!authResult.authorized || !authResult.user) {
       console.warn('[SECURITY] Conta Google autenticada mas NÃO autorizada a acessar o CMS.');
@@ -92,11 +108,11 @@ export async function GET(req: NextRequest) {
         authResult.reason === 'SUB_NOT_CONFIGURED' ? 'SubNotConfigured' : 'AccessDenied';
       const redirectUrl = new URL(`/admin/login?error=${errorQuery}`, req.url);
       const response = NextResponse.redirect(redirectUrl);
-      response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+      clearOAuthHandshakeCookies(response);
       return response;
     }
 
-    // 7. Emissão da sessão administrativa segura
+    // 8. Emissão da sessão administrativa segura
     const sessionToken = await createSessionToken(authResult.user);
     const destinationUrl = new URL('/admin', req.url);
     const response = NextResponse.redirect(destinationUrl);
@@ -110,15 +126,15 @@ export async function GET(req: NextRequest) {
       maxAge: SESSION_MAX_AGE_SECONDS,
     });
 
-    // Limpa o cookie temporário de validação de estado
-    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    // Limpa os cookies temporários de handshake OAuth (state e PKCE)
+    clearOAuthHandshakeCookies(response);
 
     return response;
   } catch {
     console.error('[AUTH_ERROR] Falha no processamento do callback Google OAuth.');
     const redirectUrl = new URL('/admin/login?error=CallbackError', req.url);
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    clearOAuthHandshakeCookies(response);
     return response;
   }
 }

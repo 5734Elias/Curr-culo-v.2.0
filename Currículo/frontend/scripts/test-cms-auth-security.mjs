@@ -8,6 +8,7 @@ import {
   PUBLIC_CONTACT_ONLY_EMAIL,
   SESSION_COOKIE_NAME,
   OAUTH_STATE_COOKIE_NAME,
+  OAUTH_PKCE_COOKIE_NAME,
 } from '../src/lib/auth/config.ts';
 import {
   createSessionToken,
@@ -18,6 +19,8 @@ import {
 import {
   buildGoogleAuthUrl,
   authorizeAdminUser,
+  generatePkcePair,
+  computeCodeChallenge,
 } from '../src/lib/auth/googleOidc.ts';
 import { resetRateLimitStore } from '../src/lib/rateLimit.ts';
 import { GET as getGoogleAuth } from '../src/app/api/auth/google/route.ts';
@@ -246,19 +249,37 @@ if (prevSub === undefined) {
 }
 
 // ----------------------------------------------------------------------------
-// [5/7] ROUTE HANDLERS DE AUTENTICAÇÃO (/api/auth/*) & PROTEÇÃO CSRF
+// [5/7] ROUTE HANDLERS DE AUTENTICAÇÃO (/api/auth/*), PKCE & PROTEÇÃO CSRF
 // ----------------------------------------------------------------------------
-console.log('\n[5/7] Testando endpoints de autenticação e proteção contra CSRF...');
+console.log('\n[5/7] Testando endpoints de autenticação, PKCE (S256) e proteção contra CSRF...');
 
-if (config.clientId) {
-  const generatedUrl = buildGoogleAuthUrl('test-state-abc');
-  assert(generatedUrl.includes('accounts.google.com'), 'URL de autenticação deve apontar para o Google.');
-  assert(generatedUrl.includes('test-state-abc'), 'URL de autenticação deve incluir o state.');
-  console.log('  -> buildGoogleAuthUrl gera URL correta com state: OK');
+const pkce = generatePkcePair();
+assert(pkce.codeVerifier.length >= 43, 'PKCE codeVerifier deve seguir RFC 7636 (>= 43 chars).');
+assert.strictEqual(
+  computeCodeChallenge(pkce.codeVerifier),
+  pkce.codeChallenge,
+  'codeChallenge deve corresponder ao hash SHA-256 base64url do codeVerifier.'
+);
+
+const prevClientId = process.env.GOOGLE_CLIENT_ID;
+process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
+const generatedUrlWithPkce = buildGoogleAuthUrl('test-state-abc', pkce.codeChallenge);
+assert(generatedUrlWithPkce.includes('accounts.google.com'), 'URL de autenticação deve apontar para o Google.');
+assert(generatedUrlWithPkce.includes('state=test-state-abc'), 'URL de autenticação deve incluir o state.');
+assert(
+  generatedUrlWithPkce.includes(`code_challenge=${encodeURIComponent(pkce.codeChallenge)}`),
+  'URL de autenticação deve incluir code_challenge PKCE.'
+);
+assert(
+  generatedUrlWithPkce.includes('code_challenge_method=S256'),
+  'URL de autenticação deve exigir code_challenge_method=S256.'
+);
+if (prevClientId === undefined) {
+  delete process.env.GOOGLE_CLIENT_ID;
 } else {
-  assert.throws(() => buildGoogleAuthUrl('test-state-abc'), /GOOGLE_CLIENT_ID/);
-  console.log('  -> buildGoogleAuthUrl bloqueia com exceção segura sem CLIENT_ID: OK');
+  process.env.GOOGLE_CLIENT_ID = prevClientId;
 }
+console.log('  -> PKCE (S256) e buildGoogleAuthUrl validados com state e code_challenge: OK');
 
 // 5.1 Endpoint /api/auth/google sem credenciais completas
 const reqGoogleAuth = new NextRequest('http://localhost:3000/api/auth/google');
@@ -282,13 +303,27 @@ console.log('  -> Callback trata cancelamento do usuário no Google: OK');
 // 5.3 Callback com State Mismatch (Proteção CSRF)
 const reqCsrf = new NextRequest('http://localhost:3000/api/auth/callback/google?code=fake-code&state=attack-state', {
   headers: {
-    cookie: `${OAUTH_STATE_COOKIE_NAME}=legitimate-state`,
+    cookie: `${OAUTH_STATE_COOKIE_NAME}=legitimate-state; ${OAUTH_PKCE_COOKIE_NAME}=${pkce.codeVerifier}`,
   },
 });
 const resCsrf = await getGoogleCallback(reqCsrf);
 assert.strictEqual(resCsrf.status, 307);
 assert(resCsrf.headers.get('location')?.includes('/admin/login?error=StateMismatch'));
 console.log('  -> Callback bloqueia divergência de State (CSRF): OK');
+
+// 5.3b Callback sem cookie PKCE (Proteção contra interceptação de código)
+const reqMissingPkce = new NextRequest('http://localhost:3000/api/auth/callback/google?code=fake-code&state=legitimate-state', {
+  headers: {
+    cookie: `${OAUTH_STATE_COOKIE_NAME}=legitimate-state`,
+  },
+});
+const resMissingPkce = await getGoogleCallback(reqMissingPkce);
+assert.strictEqual(resMissingPkce.status, 307);
+assert(
+  resMissingPkce.headers.get('location')?.includes('/admin/login?error=PkceMissing'),
+  'Callback sem verificador PKCE deve ser rejeitado com PkceMissing.'
+);
+console.log('  -> Callback bloqueia ausência de verificador PKCE (PkceMissing): OK');
 
 // 5.4 Logout via GET e POST
 const reqLogout = new NextRequest('http://localhost:3000/api/auth/logout');

@@ -48,3 +48,7 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Local CMS media storage
+.cms-storage/
+**/.cms-storage/

@@ -9,6 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "npx tsx scripts/seed-cms-data.ts",
     "auth:get-sub": "npx tsx scripts/get-google-sub.mjs",
     "test": "npx tsx scripts/validate-courses.mjs && npx tsx scripts/test-security-and-contact.mjs && npx tsx scripts/validate-data-consistency.mjs && npx tsx scripts/test-seo-and-routes.mjs && npx tsx scripts/test-ui-accessibility.mjs && npx tsx scripts/test-audit-regressions.mjs && npx tsx scripts/test-services-verification.mjs && npx tsx scripts/test-cybersecurity-hardening.mjs && npx tsx scripts/test-cms-database-integrity.mjs && npx tsx scripts/test-cms-auth-security.mjs && npx tsx scripts/test-cms-certificates-module.mjs && npx tsx scripts/test-cms-skills-module.mjs && npx tsx scripts/test-cms-projects-module.mjs && npx tsx scripts/test-cms-public-integration.mjs && npx tsx scripts/test-cms-hardening-qa.mjs"
   },

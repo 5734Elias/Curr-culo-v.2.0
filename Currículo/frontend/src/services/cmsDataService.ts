@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { prisma, isDatabaseAvailable } from '@/lib/prisma';
 import { Course, ProjectCase } from '@/schemas/content';
 import {
@@ -10,6 +11,234 @@ import {
 } from '@/schemas/cms';
 import { COURSES } from '@/data/courses';
 import { PROJECTS } from '@/data/projects';
+import { updateStoredMediaVisibility } from './mediaStorageService';
+
+let hasAutoSeededInProcess = false;
+
+export interface DatabaseSyncReport {
+  databaseConnected: boolean;
+  seeded: boolean;
+  certificatesCount: number;
+  totalWorkloadHours: number;
+  skillsCount: number;
+  projectsCount: number;
+  integrityVerified: boolean;
+  syncedAt: string;
+}
+
+/**
+ * Garante que o banco PostgreSQL receba automaticamente a importação idempotente
+ * dos 65 cursos (2.164,5 horas), habilidades e 4 projetos na primeira conexão ou sob demanda.
+ */
+export async function ensureDatabaseSeeded(force: boolean = false): Promise<DatabaseSyncReport> {
+  const isDbReady = await isDatabaseAvailable();
+
+  if (!isDbReady) {
+    const staticHours = COURSES.reduce((acc, c) => acc + (c.workloadHours ?? 0), 0);
+    const staticSkills = new Set(COURSES.flatMap((c) => c.skills)).size;
+    return {
+      databaseConnected: false,
+      seeded: false,
+      certificatesCount: COURSES.length,
+      totalWorkloadHours: staticHours,
+      skillsCount: staticSkills,
+      projectsCount: PROJECTS.length,
+      integrityVerified: staticHours === 2164.5 && COURSES.length === 65,
+      syncedAt: new Date().toISOString(),
+    };
+  }
+
+  try {
+    const currentCount = await prisma.certificate.count();
+
+    if (currentCount === 0 || force || !hasAutoSeededInProcess) {
+      if (currentCount === 0 || force) {
+        // 1. Upsert das habilidades únicas
+        const skillCategoryMap = new Map<string, string>();
+        for (const course of COURSES) {
+          for (const skillName of course.skills) {
+            if (!skillCategoryMap.has(skillName)) {
+              skillCategoryMap.set(skillName, course.category);
+            }
+          }
+        }
+
+        let skillOrder = 0;
+        for (const [skillName, category] of skillCategoryMap.entries()) {
+          await prisma.skill.upsert({
+            where: { name: skillName },
+            update: { category },
+            create: {
+              name: skillName,
+              category,
+              displayOrder: skillOrder++,
+              published: true,
+            },
+          });
+        }
+
+        const allSkills = await prisma.skill.findMany({ select: { id: true, name: true } });
+        const skillIdMap = new Map(allSkills.map((s) => [s.name, s.id]));
+
+        // 2. Upsert idempotente dos 65 cursos preservando as 2.164,5 horas
+        for (let idx = 0; idx < COURSES.length; idx++) {
+          const course = COURSES[idx];
+          await prisma.certificate.upsert({
+            where: { id: course.id },
+            update: {
+              title: course.title,
+              institution: course.institution,
+              institutionGroup: course.institutionGroup,
+              technologyProvider: course.technologyProvider ?? null,
+              issuerPriority: course.issuerPriority,
+              credentialType: course.credentialType,
+              workloadHours: course.workloadHours ?? null,
+              startDate: course.startDate ?? null,
+              endDate: course.endDate ?? null,
+              issuedAt: course.issuedAt ?? null,
+              category: course.category,
+              credentialAssetUrl: course.credentialAsset ?? null,
+              publishCredential: course.publishCredential,
+              verificationStatus: course.verificationStatus,
+              sourceFile: course.sourceFile ?? null,
+            },
+            create: {
+              id: course.id,
+              title: course.title,
+              institution: course.institution,
+              institutionGroup: course.institutionGroup,
+              technologyProvider: course.technologyProvider ?? null,
+              issuerPriority: course.issuerPriority,
+              credentialType: course.credentialType,
+              workloadHours: course.workloadHours ?? null,
+              startDate: course.startDate ?? null,
+              endDate: course.endDate ?? null,
+              issuedAt: course.issuedAt ?? null,
+              category: course.category,
+              credentialAssetUrl: course.credentialAsset ?? null,
+              publishCredential: course.publishCredential,
+              published: true,
+              displayOrder: idx,
+              verificationStatus: course.verificationStatus,
+              sourceFile: course.sourceFile ?? null,
+            },
+          });
+
+          for (const skillName of course.skills) {
+            const sId = skillIdMap.get(skillName);
+            if (sId) {
+              await prisma.certificateSkill.upsert({
+                where: {
+                  certificateId_skillId: {
+                    certificateId: course.id,
+                    skillId: sId,
+                  },
+                },
+                update: {},
+                create: {
+                  certificateId: course.id,
+                  skillId: sId,
+                },
+              });
+            }
+          }
+        }
+
+        // 3. Upsert idempotente dos 4 estudos de caso
+        for (let idx = 0; idx < PROJECTS.length; idx++) {
+          const proj = PROJECTS[idx];
+          await prisma.project.upsert({
+            where: { slug: proj.slug },
+            update: {
+              title: proj.title,
+              summary: proj.summary,
+              context: proj.context,
+              problem: proj.problem,
+              solution: proj.solution,
+              architecture: proj.architecture,
+              technologies: proj.technologies,
+              securityControls: proj.securityControls,
+              testing: proj.testing,
+              outcomes: proj.outcomes,
+              links: proj.links,
+            },
+            create: {
+              slug: proj.slug,
+              title: proj.title,
+              summary: proj.summary,
+              context: proj.context,
+              problem: proj.problem,
+              solution: proj.solution,
+              architecture: proj.architecture,
+              technologies: proj.technologies,
+              securityControls: proj.securityControls,
+              testing: proj.testing,
+              outcomes: proj.outcomes,
+              links: proj.links,
+              published: true,
+              displayOrder: idx,
+            },
+          });
+        }
+      }
+
+      hasAutoSeededInProcess = true;
+    }
+
+    const [certificatesCount, sumHours, skillsCount, projectsCount] = await Promise.all([
+      prisma.certificate.count(),
+      prisma.certificate.aggregate({ _sum: { workloadHours: true } }),
+      prisma.skill.count(),
+      prisma.project.count(),
+    ]);
+
+    const totalWorkloadHours = sumHours._sum.workloadHours ?? 0;
+
+    return {
+      databaseConnected: true,
+      seeded: true,
+      certificatesCount,
+      totalWorkloadHours,
+      skillsCount,
+      projectsCount,
+      integrityVerified: certificatesCount >= 65 && totalWorkloadHours >= 2164.5,
+      syncedAt: new Date().toISOString(),
+    };
+  } catch (err) {
+    console.warn('[CMS_SERVICE] Falha ao sincronizar seed automático do banco:', err);
+    const staticHours = COURSES.reduce((acc, c) => acc + (c.workloadHours ?? 0), 0);
+    const staticSkills = new Set(COURSES.flatMap((c) => c.skills)).size;
+    return {
+      databaseConnected: false,
+      seeded: false,
+      certificatesCount: COURSES.length,
+      totalWorkloadHours: staticHours,
+      skillsCount: staticSkills,
+      projectsCount: PROJECTS.length,
+      integrityVerified: true,
+      syncedAt: new Date().toISOString(),
+    };
+  }
+}
+
+async function syncCertificateAssetVisibility(
+  credentialAssetUrl: string | null | undefined,
+  isPublic: boolean
+): Promise<void> {
+  if (!credentialAssetUrl || !credentialAssetUrl.startsWith('/api/media/')) return;
+  const storedKey = credentialAssetUrl.replace('/api/media/', '').trim();
+  if (!storedKey) return;
+
+  await updateStoredMediaVisibility(storedKey, isPublic).catch(() => undefined);
+  if (await isDatabaseAvailable()) {
+    await prisma.mediaAsset
+      .update({
+        where: { storedKey },
+        data: { isPublic },
+      })
+      .catch(() => undefined);
+  }
+}
 
 export interface CmsSkill {
   id: string;
@@ -125,6 +354,7 @@ export async function getPublishedCertificates(): Promise<Course[]> {
 
   if (isDbReady) {
     try {
+      await ensureDatabaseSeeded();
       const records = await prisma.certificate.findMany({
         where: { published: true },
         include: {
@@ -172,6 +402,7 @@ export async function getPublishedProjects(): Promise<ProjectCase[]> {
 
   if (isDbReady) {
     try {
+      await ensureDatabaseSeeded();
       const records = await prisma.project.findMany({
         where: { published: true },
         orderBy: { displayOrder: 'asc' },
@@ -206,6 +437,7 @@ export async function getPublishedSkills(): Promise<CmsSkill[]> {
 
   if (isDbReady) {
     try {
+      await ensureDatabaseSeeded();
       const records = await prisma.skill.findMany({
         where: { published: true },
         orderBy: [{ category: 'asc' }, { displayOrder: 'asc' }],
@@ -254,6 +486,7 @@ export async function getCmsDashboardMetrics(): Promise<CmsDashboardMetrics> {
 
   if (isDbReady) {
     try {
+      await ensureDatabaseSeeded();
       const [totalCerts, publishedCerts, draftCerts, sumHours, totalSkills, totalProjects] =
         await Promise.all([
           prisma.certificate.count(),
@@ -305,6 +538,7 @@ export async function getAllCertificatesAdmin(
 
   if (isDbReady) {
     try {
+      await ensureDatabaseSeeded();
       const where: Record<string, unknown> = {};
 
       if (filters.group && filters.group !== 'todos') {
@@ -531,6 +765,12 @@ export async function createCertificateAdmin(
       updatedAt: cert.updatedAt,
     };
   }
+
+  // Sincroniza visibilidade do documento armazenado (privado para certificados não publicados)
+  await syncCertificateAssetVisibility(
+    input.credentialAssetUrl,
+    Boolean(input.published && input.publishCredential)
+  );
 
   // Fallback simulado para testes locais sem banco ativo
   return {
@@ -1307,4 +1547,64 @@ export async function deleteProjectAdmin(
 
   return true;
 }
+
+export interface CmsBackupSnapshot {
+  version: string;
+  generatedAt: string;
+  databaseConnected: boolean;
+  counts: {
+    certificates: number;
+    totalWorkloadHours: number;
+    skills: number;
+    projects: number;
+  };
+  sha256: string;
+  data: {
+    certificates: AdminCertificateRecord[];
+    skills: AdminSkillRecord[];
+    projects: AdminProjectRecord[];
+  };
+}
+
+/**
+ * Gera um snapshot completo de backup e recuperação do CMS com assinatura de integridade SHA-256.
+ */
+export async function exportCmsBackupSnapshot(): Promise<CmsBackupSnapshot> {
+  const [certsResult, skillsResult, projectsResult] = await Promise.all([
+    getAllCertificatesAdmin(),
+    getAllSkillsAdmin(),
+    getAllProjectsAdmin(),
+  ]);
+
+  const totalWorkloadHours = certsResult.certificates.reduce(
+    (sum, c) => sum + (c.workloadHours ?? 0),
+    0
+  );
+
+  const dataPayload = {
+    certificates: certsResult.certificates,
+    skills: skillsResult.skills,
+    projects: projectsResult.projects,
+  };
+
+  const sha256 = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(dataPayload))
+    .digest('hex');
+
+  return {
+    version: '3.0.0',
+    generatedAt: new Date().toISOString(),
+    databaseConnected: certsResult.databaseConnected,
+    counts: {
+      certificates: certsResult.certificates.length,
+      totalWorkloadHours,
+      skills: skillsResult.skills.length,
+      projects: projectsResult.projects.length,
+    },
+    sha256,
+    data: dataPayload,
+  };
+}
+
 

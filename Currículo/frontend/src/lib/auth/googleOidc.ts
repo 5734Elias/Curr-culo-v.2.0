@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { createRemoteJWKSet } from 'jose/jwks/remote';
 import { jwtVerify } from 'jose/jwt/verify';
 import { getAuthConfig, PUBLIC_CONTACT_ONLY_EMAIL } from './config';
@@ -6,6 +7,27 @@ import { prisma, isDatabaseAvailable } from '../prisma';
 
 const GOOGLE_CERTS_URL = new URL('https://www.googleapis.com/oauth2/v3/certs');
 const googleJWKS = createRemoteJWKSet(GOOGLE_CERTS_URL);
+
+export interface PkcePair {
+  codeVerifier: string;
+  codeChallenge: string;
+}
+
+/**
+ * Calcula o code_challenge S256 (RFC 7636) a partir de um code_verifier.
+ */
+export function computeCodeChallenge(codeVerifier: string): string {
+  return crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+}
+
+/**
+ * Gera um par criptográfico PKCE (Proof Key for Code Exchange - RFC 7636) com método S256.
+ */
+export function generatePkcePair(): PkcePair {
+  const codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = computeCodeChallenge(codeVerifier);
+  return { codeVerifier, codeChallenge };
+}
 
 export interface GoogleIdTokenPayload {
   sub: string;
@@ -28,9 +50,10 @@ export interface AuthorizeResult {
 
 /**
  * Gera a URL do Google OAuth 2.0 / OpenID Connect para redirecionamento do administrador.
+ * Inclui proteção anti-CSRF (`state`) e PKCE (`code_challenge` S256).
  * O fluxo aproveita integralmente a autenticação de dois fatores (2FA) já ativa na conta Google.
  */
-export function buildGoogleAuthUrl(state: string): string {
+export function buildGoogleAuthUrl(state: string, codeChallenge?: string): string {
   const config = getAuthConfig();
   if (!config.clientId) {
     throw new Error('GOOGLE_CLIENT_ID não configurado no servidor.');
@@ -46,14 +69,27 @@ export function buildGoogleAuthUrl(state: string): string {
     prompt: 'select_account',
   });
 
+  if (codeChallenge) {
+    params.set('code_challenge', codeChallenge);
+    params.set('code_challenge_method', 'S256');
+  }
+
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
 /**
- * Troca o código de autorização retornado pelo Google pelos tokens de acesso e ID.
+ * Troca o código de autorização retornado pelo Google pelos tokens de acesso e ID,
+ * enviando o `code_verifier` PKCE correspondente para impedir interceptação de código.
  * Não registra tokens nem corpos brutos de resposta em logs para preservar sigilo absoluto.
  */
-export async function exchangeCodeForTokens(code: string): Promise<{ id_token: string; access_token: string }> {
+export async function exchangeCodeForTokens(
+  code: string,
+  codeVerifier: string
+): Promise<{ id_token: string; access_token: string }> {
+  if (!codeVerifier || !codeVerifier.trim()) {
+    throw new Error('Verificador PKCE (code_verifier) obrigatório para troca de código OAuth.');
+  }
+
   const config = getAuthConfig();
 
   const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -67,6 +103,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{ id_token: s
       client_secret: config.clientSecret,
       redirect_uri: config.callbackUrl,
       grant_type: 'authorization_code',
+      code_verifier: codeVerifier,
     }),
   });
 

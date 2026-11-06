@@ -59,6 +59,11 @@ function LoginContent() {
         errorTitle = 'Falha de Validação CSRF';
         errorMessage = 'Ocorreu uma divergência de segurança na validação de estado. Tente novamente.';
         break;
+      case 'PkceMissing':
+        errorTitle = 'Falha de Validação PKCE';
+        errorMessage =
+          'O verificador criptográfico PKCE expirou ou estava ausente na requisição. Inicie o login novamente.';
+        break;
       case 'Cancelled':
         errorTitle = 'Login Cancelado';
         errorMessage = 'O procedimento de login com a conta Google foi cancelado.';

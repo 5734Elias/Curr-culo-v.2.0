@@ -10,6 +10,8 @@ import { SESSION_COOKIE_NAME, OFFICIAL_ADMIN_EMAIL, PUBLIC_CONTACT_ONLY_EMAIL } 
 import { GET as getCertificatesRoute, POST as postCertificatesRoute } from '../src/app/api/admin/certificates/route.ts';
 import { DELETE as deleteCertificateRoute } from '../src/app/api/admin/certificates/[id]/route.ts';
 import { POST as uploadMediaRoute } from '../src/app/api/admin/media/upload/route.ts';
+import { GET as getMediaRoute } from '../src/app/api/media/[key]/route.ts';
+import { GET as getDbBackupRoute, POST as postDbSyncRoute } from '../src/app/api/admin/database/sync/route.ts';
 import { sanitizeFileName } from '../src/schemas/cms.ts';
 import { getPublishedCertificates, getPublishedProjects } from '../src/services/cmsDataService.ts';
 import { PROFILE } from '../src/data/profile.ts';
@@ -267,7 +269,45 @@ const totalHoursVerified = publishedCerts.reduce((sum, c) => sum + (c.workloadHo
 assert.strictEqual(totalHoursVerified, 2164.5, 'Carga horária total deve permanecer estritamente 2.164,5h.');
 assert.strictEqual(new Set(publishedCerts.map((c) => c.institution)).size, 13, 'Devem existir exatamente 13 instituições únicas catalogadas.');
 
-console.log(`  -> 65 cursos e 2.164,5 horas preservados com precisão matemática absoluta: OK`);
+// 6.1 Teste do Endpoint de Sincronização e Backup (/api/admin/database/sync) e Proteção de Rota de Mídia
+const anonSyncReq = new NextRequest('http://localhost:3000/api/admin/database/sync');
+const anonSyncRes = await getDbBackupRoute(anonSyncReq);
+assert.strictEqual(anonSyncRes.status, 401, 'Backup do banco deve negar acesso anônimo (HTTP 401).');
+
+const officialAdminToken = await createSessionToken({
+  sub: 'admin-google-sub-12345',
+  email: 'reis.elias.ribeiro@gmail.com',
+  name: 'Elias Ribeiro dos Reis',
+  role: 'SUPER_ADMIN',
+});
+
+const authBackupReq = new NextRequest('http://localhost:3000/api/admin/database/sync', {
+  headers: { cookie: `${SESSION_COOKIE_NAME}=${officialAdminToken}` },
+});
+const authBackupRes = await getDbBackupRoute(authBackupReq);
+assert.strictEqual(authBackupRes.status, 200, 'Administrador autorizado deve conseguir exportar backup do CMS.');
+const backupPayload = await authBackupRes.json();
+assert.strictEqual(backupPayload.success, true);
+assert.strictEqual(backupPayload.backup.counts.certificates, 65);
+assert.strictEqual(backupPayload.backup.counts.totalWorkloadHours, 2164.5);
+assert.strictEqual(backupPayload.backup.sha256.length, 64);
+
+const authSyncPostReq = new NextRequest('http://localhost:3000/api/admin/database/sync', {
+  method: 'POST',
+  headers: { cookie: `${SESSION_COOKIE_NAME}=${officialAdminToken}` },
+});
+const authSyncPostRes = await postDbSyncRoute(authSyncPostReq);
+assert.strictEqual(authSyncPostRes.status, 200);
+const syncPayload = await authSyncPostRes.json();
+assert.strictEqual(syncPayload.report.integrityVerified, true);
+
+const traversalMediaReq = new NextRequest('http://localhost:3000/api/media/..%2F..%2Fetc%2Fpasswd');
+const traversalMediaRes = await getMediaRoute(traversalMediaReq, {
+  params: Promise.resolve({ key: '../../etc/passwd' }),
+});
+assert.strictEqual(traversalMediaRes.status, 400, 'Rota de mídia deve rejeitar chaves fora do padrão UUID.');
+
+console.log(`  -> 65 cursos, 2.164,5 horas, backup SHA-256 e proteção de rotas validados com sucesso: OK`);
 
 console.log('\n====================================================================');
 console.log('--- TODOS OS PORTÕES DE CIBERSEGURANÇA E QA FORAM APROVADOS! ---');

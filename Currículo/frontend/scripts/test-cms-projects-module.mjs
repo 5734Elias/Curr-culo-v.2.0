@@ -23,6 +23,8 @@ import {
   DELETE as deleteProjectApi,
 } from '../src/app/api/admin/projects/[id]/route.ts';
 import { POST as postUploadApi } from '../src/app/api/admin/media/upload/route.ts';
+import { GET as getMediaByKeyApi, DELETE as deleteMediaByKeyApi } from '../src/app/api/media/[key]/route.ts';
+import { readStoredMedia } from '../src/services/mediaStorageService.ts';
 
 console.log('====================================================================');
 console.log('--- TEST SUITE: CMS PROJECTS & MEDIA ASSETS MODULE (FASE 6) ---');
@@ -222,7 +224,7 @@ const resSpoofed = await postUploadApi(reqSpoofed);
 assert.strictEqual(resSpoofed.status, 415);
 console.log('  -> Detecção e rejeição de Magic Bytes falsificados (HTTP 415): OK');
 
-// 3.5 Upload Bem-sucedido de PNG com Magic Bytes Autênticos (HTTP 201)
+// 3.5 Upload Bem-sucedido de PNG com Magic Bytes Autênticos + Verificação de Leitura Pós-Upload (HTTP 201)
 // \x89PNG\r\n\x1a\n
 const validPngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
 const authenticPngFile = new File([validPngBytes], 'diagrama-arquitetura.png', {
@@ -230,6 +232,7 @@ const authenticPngFile = new File([validPngBytes], 'diagrama-arquitetura.png', {
 });
 const formAuthentic = new FormData();
 formAuthentic.append('file', authenticPngFile);
+formAuthentic.append('isPublic', 'true');
 
 const reqAuthentic = new NextRequest('http://localhost:3000/api/admin/media/upload', {
   method: 'POST',
@@ -240,17 +243,31 @@ const resAuthentic = await postUploadApi(reqAuthentic);
 assert.strictEqual(resAuthentic.status, 201);
 const bodyAuthentic = await resAuthentic.json();
 assert.strictEqual(bodyAuthentic.success, true);
-assert(bodyAuthentic.asset.url.startsWith('/uploads/'));
+assert.strictEqual(bodyAuthentic.asset.verifiedReadAfterWrite, true, 'Deve confirmar gravação por leitura pós-upload.');
+assert(bodyAuthentic.asset.url.startsWith('/api/media/'), 'URL de recuperação deve apontar para /api/media/[key].');
 assert(bodyAuthentic.asset.storedKey.endsWith('.png'));
-console.log('  -> Upload de imagem PNG legítima com validação de Magic Bytes (HTTP 201): OK');
+assert.strictEqual(bodyAuthentic.asset.sha256.length, 64, 'Deve retornar hash SHA-256 de 64 caracteres.');
 
-// 3.6 Upload Bem-sucedido de PDF com Magic Bytes Autênticos (%PDF-) (HTTP 201)
-const validPdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
-const authenticPdfFile = new File([validPdfBytes], 'comprovante.pdf', {
+// Recuperação real via GET /api/media/[key] (público)
+const reqGetPublicPng = new NextRequest(`http://localhost:3000${bodyAuthentic.asset.url}`);
+const resGetPublicPng = await getMediaByKeyApi(reqGetPublicPng, {
+  params: Promise.resolve({ key: bodyAuthentic.asset.storedKey }),
+});
+assert.strictEqual(resGetPublicPng.status, 200, 'Arquivo público recém-gravado deve ser recuperado com HTTP 200.');
+assert.strictEqual(resGetPublicPng.headers.get('content-type'), 'image/png');
+assert.strictEqual(resGetPublicPng.headers.get('x-content-type-options'), 'nosniff');
+const downloadedPngBytes = new Uint8Array(await resGetPublicPng.arrayBuffer());
+assert.deepStrictEqual(downloadedPngBytes, validPngBytes, 'Conteúdo lido deve ser idêntico byte a byte ao PNG enviado.');
+console.log('  -> Upload persistente e recuperação íntegra de imagem PNG (HTTP 201 + GET 200): OK');
+
+// 3.6 Upload de PDF Privado (Documento Não Publicado: isPublic=false) e Controle de Acesso
+const validPdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x0a, 0x25, 0xe2, 0xe3]);
+const authenticPdfFile = new File([validPdfBytes], 'comprovante-rascunho.pdf', {
   type: 'application/pdf',
 });
 const formPdf = new FormData();
 formPdf.append('file', authenticPdfFile);
+formPdf.append('isPublic', 'false');
 
 const reqPdf = new NextRequest('http://localhost:3000/api/admin/media/upload', {
   method: 'POST',
@@ -259,7 +276,64 @@ const reqPdf = new NextRequest('http://localhost:3000/api/admin/media/upload', {
 });
 const resPdf = await postUploadApi(reqPdf);
 assert.strictEqual(resPdf.status, 201);
-console.log('  -> Upload de documento PDF legítimo com validação de Magic Bytes (HTTP 201): OK');
+const bodyPdf = await resPdf.json();
+assert.strictEqual(bodyPdf.asset.isPublic, false, 'Documento não publicado deve ser armazenado como privado.');
+
+// Visitante anônimo NÃO pode acessar documento privado
+const reqAnonGetPrivatePdf = new NextRequest(`http://localhost:3000${bodyPdf.asset.url}`);
+const resAnonGetPrivatePdf = await getMediaByKeyApi(reqAnonGetPrivatePdf, {
+  params: Promise.resolve({ key: bodyPdf.asset.storedKey }),
+});
+assert.strictEqual(resAnonGetPrivatePdf.status, 401, 'Documento privado deve negar acesso anônimo com HTTP 401.');
+
+// Administrador autenticado (reis.elias.ribeiro@gmail.com) PODE ler e validar o documento privado
+const reqAdminGetPrivatePdf = new NextRequest(`http://localhost:3000${bodyPdf.asset.url}`, {
+  headers: { cookie: `${SESSION_COOKIE_NAME}=${adminToken}` },
+});
+const resAdminGetPrivatePdf = await getMediaByKeyApi(reqAdminGetPrivatePdf, {
+  params: Promise.resolve({ key: bodyPdf.asset.storedKey }),
+});
+assert.strictEqual(resAdminGetPrivatePdf.status, 200, 'Administrador deve conseguir recuperar documento privado.');
+assert(resAdminGetPrivatePdf.headers.get('cache-control')?.includes('private, no-store'));
+const downloadedPdfBytes = new Uint8Array(await resAdminGetPrivatePdf.arrayBuffer());
+assert.deepStrictEqual(downloadedPdfBytes, validPdfBytes, 'PDF recuperado pelo admin deve ser idêntico byte a byte.');
+console.log('  -> Armazenamento privado para PDF não publicado e leitura autenticada pós-upload: OK');
+
+// 3.7 Tratamento de Falhas e Limpeza Automática de Arquivos Órfãos
+const orphanTestPdf = new File([validPdfBytes], 'orfão-teste.pdf', { type: 'application/pdf' });
+const formOrphan = new FormData();
+formOrphan.append('file', orphanTestPdf);
+const reqOrphan = new NextRequest('http://localhost:3000/api/admin/media/upload', {
+  method: 'POST',
+  headers: {
+    cookie: `${SESSION_COOKIE_NAME}=${adminToken}`,
+    'x-test-simulate-db-failure': 'true',
+  },
+  body: formOrphan,
+});
+const resOrphan = await postUploadApi(reqOrphan);
+assert.strictEqual(resOrphan.status, 500, 'Falha na gravação de metadados deve retornar HTTP 500.');
+const bodyOrphan = await resOrphan.json();
+assert.strictEqual(bodyOrphan.orphanCleaned, true, 'Deve confirmar limpeza imediata do arquivo órfão.');
+console.log('  -> Rollback e remoção automática de arquivos órfãos em caso de falha: OK');
+
+// Limpeza dos arquivos criados no teste
+await deleteMediaByKeyApi(
+  new NextRequest(`http://localhost:3000${bodyAuthentic.asset.url}`, {
+    method: 'DELETE',
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${adminToken}` },
+  }),
+  { params: Promise.resolve({ key: bodyAuthentic.asset.storedKey }) }
+);
+await deleteMediaByKeyApi(
+  new NextRequest(`http://localhost:3000${bodyPdf.asset.url}`, {
+    method: 'DELETE',
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${adminToken}` },
+  }),
+  { params: Promise.resolve({ key: bodyPdf.asset.storedKey }) }
+);
+assert.strictEqual(await readStoredMedia(bodyAuthentic.asset.storedKey), null);
+assert.strictEqual(await readStoredMedia(bodyPdf.asset.storedKey), null);
 
 // ----------------------------------------------------------------------------
 // [4/7] ENDPOINTS HTTP DE LISTAGEM E CRIAÇÃO (/api/admin/projects)
