@@ -2,6 +2,7 @@ import { SignJWT } from 'jose/jwt/sign';
 import { jwtVerify } from 'jose/jwt/verify';
 import {
   getAuthConfig,
+  PUBLIC_CONTACT_ONLY_EMAIL,
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
 } from './config';
@@ -45,15 +46,22 @@ export async function createSessionToken(user: AdminSessionUser): Promise<string
 
 /**
  * Valida o token JWT da sessão e retorna os dados do administrador.
- * Retorna null se o token for inválido, adulterado ou expirado.
+ * Retorna null se o token for inválido, adulterado, expirado ou de identidade não autorizada.
  */
-export async function verifySessionToken(token: string): Promise<AdminSessionUser | null> {
+export async function verifySessionToken(
+  token: string,
+  enforceProductionSub: boolean = process.env.NODE_ENV === 'production'
+): Promise<AdminSessionUser | null> {
   if (!token || typeof token !== 'string') {
     return null;
   }
 
   try {
     const config = getAuthConfig();
+    if (!config.authSecret) {
+      return null;
+    }
+
     const secretKey = new TextEncoder().encode(config.authSecret);
 
     const { payload } = await jwtVerify(token, secretKey, {
@@ -63,6 +71,7 @@ export async function verifySessionToken(token: string): Promise<AdminSessionUse
 
     if (
       !payload.sub ||
+      typeof payload.sub !== 'string' ||
       !payload.email ||
       payload.role !== 'SUPER_ADMIN' ||
       typeof payload.email !== 'string'
@@ -70,21 +79,33 @@ export async function verifySessionToken(token: string): Promise<AdminSessionUse
       return null;
     }
 
-    // Validação Zero Trust: o e-mail da sessão deve coincidir com o e-mail administrativo configurado
-    if (payload.email.toLowerCase() !== config.adminEmail) {
-      console.warn('[SECURITY] Sessão com e-mail não autorizado rejeitada:', payload.email);
+    const normalizedEmail = payload.email.toLowerCase().trim();
+
+    // Validação Zero Trust: o e-mail da sessão deve coincidir com reis.elias.ribeiro@gmail.com
+    // e jamais ser o e-mail de contato público (elias.re_is@hotmail.com)
+    if (
+      normalizedEmail === PUBLIC_CONTACT_ONLY_EMAIL ||
+      normalizedEmail !== config.adminEmail
+    ) {
+      console.warn('[SECURITY] Sessão com conta não autorizada rejeitada.');
       return null;
     }
 
-    // Se adminSub estiver definido, valida também o sub imutável
+    // Em produção, GOOGLE_ADMIN_SUB deve estar obrigatoriamente configurado
+    if (enforceProductionSub && !config.adminSub) {
+      console.warn('[SECURITY] Sessão rejeitada: GOOGLE_ADMIN_SUB ausente em produção.');
+      return null;
+    }
+
+    // Se adminSub estiver definido, valida a correspondência exata com o sub imutável
     if (config.adminSub && payload.sub !== config.adminSub) {
-      console.warn('[SECURITY] Sessão com sub imutável divergente rejeitada:', payload.sub);
+      console.warn('[SECURITY] Sessão com identificador sub divergente rejeitada.');
       return null;
     }
 
     return {
-      sub: payload.sub as string,
-      email: payload.email as string,
+      sub: payload.sub,
+      email: normalizedEmail,
       name: (payload.name as string) || 'Administrador',
       avatarUrl: (payload.avatarUrl as string) || null,
       role: 'SUPER_ADMIN',

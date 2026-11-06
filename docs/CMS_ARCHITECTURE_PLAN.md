@@ -152,17 +152,17 @@ O objetivo deste módulo é implementar um painel administrativo privado e segur
 1. **Variáveis de Ambiente Necessárias:**
    - `GOOGLE_CLIENT_ID`: ID do cliente OAuth gerado no Google Cloud Console.
    - `GOOGLE_CLIENT_SECRET`: Segredo do cliente OAuth.
-   - `GOOGLE_ADMIN_SUB`: Identificador imutável (`sub`) da conta Google autorizada.
-   - `GOOGLE_ADMIN_EMAIL`: E-mail oficial da conta Google autorizada (ex: `elias.re_is@hotmail.com` ou Gmail associado).
-   - `AUTH_SECRET`: Chave simétrica de 256 bits para criptografia de cookies de sessão (JWE).
+   - `GOOGLE_ADMIN_SUB`: Identificador imutável (`sub`) da conta Google autorizada (obrigatório em produção).
+   - `GOOGLE_ADMIN_EMAIL`: E-mail oficial da conta Google autorizada (`reis.elias.ribeiro@gmail.com`). O e-mail `elias.re_is@hotmail.com` é restrito exclusivamente para contato público.
+   - `AUTH_SECRET`: Chave simétrica de 256 bits para assinatura criptográfica de cookies de sessão (JWT).
 2. **Fluxo de Autorização:**
    - Usuário clica em "Entrar com Google" em `/admin/login`.
-   - Redirecionamento para o consentimento do Google solicitando apenas escopos básicos: `openid`, `email`, `profile`.
+   - Redirecionamento para o consentimento do Google solicitando apenas escopos básicos: `openid`, `email`, `profile`, aproveitando o 2FA nativo da conta Google.
    - No callback do servidor:
-     1. Validação da assinatura do ID Token emitido pelo Google.
-     2. Verificação estrita: `token.sub === process.env.GOOGLE_ADMIN_SUB` E/OU `token.email === process.env.GOOGLE_ADMIN_EMAIL`.
-     3. Se não corresponder: a sessão é negada e destruída imediatamente, registrando o incidente no `AuditLog` como tentativa não autorizada.
-     4. Se corresponder: emite cookie de sessão seguro (`HttpOnly`, `SameSite=Lax`, `Secure`, `Path=/admin`).
+     1. Validação da assinatura do ID Token emitido pelo Google contra o JWKS oficial.
+     2. Verificação estrita cumulativa: `token.email_verified === true` E `token.email === process.env.GOOGLE_ADMIN_EMAIL` (`reis.elias.ribeiro@gmail.com`) E `token.sub === process.env.GOOGLE_ADMIN_SUB`.
+     3. Se não corresponder (ou se `GOOGLE_ADMIN_SUB` estiver ausente em produção): a sessão é negada e destruída imediatamente (Fail-Closed).
+     4. Se corresponder: emite cookie de sessão seguro (`HttpOnly`, `SameSite=Lax`, `Secure`, `Path=/`).
 
 ---
 
@@ -201,6 +201,6 @@ Ao alterar o status de um certificado para "Publicado":
 - [x] **Fase 5: Módulo de Habilidades e Competências Técnicas (`/admin/skills`).** (Concluída)
 - [x] **Fase 6: Módulo de Projetos e Upload Seguro de Mídia (`/admin/projects` e `/api/admin/media/upload`).** (Concluída)
 - [x] **Fase 7: Integração dinâmica do portfólio público com revalidação sob demanda (ISR).** (Concluída)
-- [x] **Fase 8: Hardening final, QA e verificação ponta a ponta de cibersegurança.** (Concluída nesta etapa)
-- [ ] **Fase 9: Homologação na Vercel e publicação autorizada na branch `main`.**
+- [x] **Fase 8: Hardening final, QA e verificação ponta a ponta de cibersegurança.** (Concluída)
+- [x] **Fase 9: Homologação na Vercel e publicação autorizada na branch `main`.** (Concluída)
 

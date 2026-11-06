@@ -2,9 +2,13 @@
  * Configurações e constantes do subsistema de Autenticação e Autorização do CMS.
  *
  * Aplica o princípio Zero Trust:
- * - O e-mail administrativo é restrito à conta expressamente autorizada pelo proprietário.
- * - O identificador imutável `sub` do Google é validado contra falsificação de identidade.
+ * - O e-mail administrativo é restrito exclusivamente à conta Google oficial do proprietário (reis.elias.ribeiro@gmail.com).
+ * - O e-mail de contato público (elias.re_is@hotmail.com) nunca é aceito como identidade administrativa.
+ * - O identificador imutável `sub` do Google (GOOGLE_ADMIN_SUB) é obrigatório em produção e validado contra falsificação de identidade.
  */
+
+export const OFFICIAL_ADMIN_EMAIL = 'reis.elias.ribeiro@gmail.com';
+export const PUBLIC_CONTACT_ONLY_EMAIL = 'elias.re_is@hotmail.com';
 
 export interface AuthConfig {
   clientId: string;
@@ -20,10 +24,15 @@ export interface AuthConfig {
 export function getAuthConfig(): AuthConfig {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
-  const adminEmail = (process.env.GOOGLE_ADMIN_EMAIL?.trim() || 'elias.re_is@hotmail.com').toLowerCase();
+  const rawAdminEmail = (process.env.GOOGLE_ADMIN_EMAIL?.trim() || OFFICIAL_ADMIN_EMAIL).toLowerCase();
+
+  // Impede que o e-mail de contato público seja utilizado como identidade administrativa
+  const adminEmail =
+    rawAdminEmail === PUBLIC_CONTACT_ONLY_EMAIL ? OFFICIAL_ADMIN_EMAIL : rawAdminEmail;
+
   const adminSub = process.env.GOOGLE_ADMIN_SUB?.trim() || null;
-  
-  // URL base canônica para redirecionamentos OAuth
+
+  // URL base canônica para redirecionamentos OAuth (Domínio oficial da Vercel por padrão)
   const siteUrl = (
     process.env.NEXTAUTH_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
@@ -34,8 +43,10 @@ export function getAuthConfig(): AuthConfig {
 
   // Segredo de sessão com proteção de ambiente
   let authSecret = process.env.AUTH_SECRET?.trim() || '';
+  const isProduction = process.env.NODE_ENV === 'production';
+
   if (!authSecret) {
-    if (process.env.NODE_ENV === 'production') {
+    if (isProduction) {
       console.error('[SECURITY_CRITICAL] AUTH_SECRET não configurado em ambiente de produção!');
     } else {
       // Valor temporário estrito apenas para testes e desenvolvimento local
@@ -43,7 +54,10 @@ export function getAuthConfig(): AuthConfig {
     }
   }
 
-  const isConfigured = Boolean(clientId && clientSecret && authSecret);
+  // Em produção, GOOGLE_ADMIN_SUB também é estritamente obrigatório
+  const isConfigured = isProduction
+    ? Boolean(clientId && clientSecret && authSecret && adminSub)
+    : Boolean(clientId && clientSecret && authSecret);
 
   return {
     clientId,
@@ -63,4 +77,3 @@ export const SESSION_COOKIE_NAME =
 export const OAUTH_STATE_COOKIE_NAME = 'cms-oauth-state';
 
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24; // 24 horas
-

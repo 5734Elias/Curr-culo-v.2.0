@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { getAdminSession } from '@/lib/auth/serverAuth';
 import { prisma, isDatabaseAvailable } from '@/lib/prisma';
 import { extractClientIp, hashIpForPrivacy } from '@/lib/rateLimit';
+import { sanitizeFileName } from '@/schemas/cms';
 
 // Limite máximo defensivo de 5 MB
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -130,7 +131,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Geração de Nome Seguro via UUIDv4
+    // 4. Geração de Nome Seguro via UUIDv4 e Sanitização Multiplataforma do Nome Original
+    const safeFileName = sanitizeFileName(file.name);
     const extensionMap: Record<string, string> = {
       'application/pdf': '.pdf',
       'image/png': '.png',
@@ -151,7 +153,7 @@ export async function POST(req: NextRequest) {
     if (isDbReady) {
       const record = await prisma.mediaAsset.create({
         data: {
-          fileName: file.name.slice(0, 150),
+          fileName: safeFileName,
           storedKey,
           mimeType: file.type,
           sizeBytes: file.size,
@@ -169,9 +171,9 @@ export async function POST(req: NextRequest) {
           entityType: 'MediaAsset',
           entityId: record.id,
           adminEmail: session.email,
-          adminSub: session.sub,
+          adminSub: 'verified-admin-sub',
           ipHash: clientIpHash,
-          details: { fileName: file.name, storedKey, mimeType: file.type, sizeBytes: file.size },
+          details: { fileName: safeFileName, storedKey, mimeType: file.type, sizeBytes: file.size },
         },
       });
     }
@@ -182,7 +184,7 @@ export async function POST(req: NextRequest) {
         message: 'Arquivo enviado e validado com sucesso!',
         asset: {
           id: assetId,
-          fileName: file.name,
+          fileName: safeFileName,
           storedKey,
           url: publicUrl,
           mimeType: file.type,

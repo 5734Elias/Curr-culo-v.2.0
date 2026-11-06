@@ -34,7 +34,17 @@ function LoginContent() {
       case 'AccessDenied':
         errorTitle = 'Acesso Negado (Zero Trust)';
         errorMessage =
-          'Esta conta Google não está autorizada a administrar este portfólio. Apenas o e-mail cadastrado pelo proprietário possui permissão.';
+          'Esta conta Google não está autorizada a administrar este portfólio. Apenas a conta Google oficial e o identificador imutável (sub) do proprietário possuem permissão.';
+        break;
+      case 'SubNotConfigured':
+        errorTitle = 'Identificador Google (sub) Pendente';
+        errorMessage =
+          'Por segurança Zero Trust, o login em produção exige que o identificador imutável GOOGLE_ADMIN_SUB esteja previamente configurado nas variáveis de ambiente.';
+        break;
+      case 'RateLimitExceeded':
+        errorTitle = 'Muitas Tentativas de Autenticação';
+        errorMessage =
+          'O limite de tentativas de login para o seu endereço IP foi atingido temporariamente. Aguarde alguns minutos antes de tentar novamente.';
         break;
       case 'ConfigurationError':
         errorTitle = 'Configuração Pendente';

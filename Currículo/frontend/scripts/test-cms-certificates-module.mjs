@@ -25,11 +25,19 @@ console.log('===================================================================
 console.log('--- TEST SUITE: CMS CERTIFICATES MANAGEMENT MODULE (FASE 4) ---');
 console.log('====================================================================');
 
-// Cria token de administrador para os testes autorizados
+// Cria token de administrador para os testes autorizados (identidade oficial reis.elias.ribeiro@gmail.com)
 const adminToken = await createSessionToken({
   sub: 'google-sub-elias-test',
-  email: 'elias.re_is@hotmail.com',
+  email: 'reis.elias.ribeiro@gmail.com',
   name: 'Elias Ribeiro dos Reis',
+  role: 'SUPER_ADMIN',
+});
+
+// Cria token com o e-mail de contato público para comprovar que é rejeitado nas APIs administrativas
+const unauthorizedLegacyToken = await createSessionToken({
+  sub: 'google-sub-elias-test',
+  email: 'elias.re_is@hotmail.com',
+  name: 'Contato Público',
   role: 'SUPER_ADMIN',
 });
 
@@ -114,11 +122,11 @@ assert(searchResult.total > 0, 'Busca por "segurança" deve retornar certificado
 console.log(`  -> Busca textual encontrou ${searchResult.total} certificados correspondentes: OK`);
 
 // 2.6 Métodos diretos de manipulação no cmsDataService
-const directCreated = await createCertificateAdmin(validCertInput, 'elias.re_is@hotmail.com', 'test-sub');
+const directCreated = await createCertificateAdmin(validCertInput, 'reis.elias.ribeiro@gmail.com', 'test-sub');
 assert(directCreated.id, 'createCertificateAdmin deve retornar o registro criado.');
-const toggleOk = await toggleCertificatePublishAdmin(directCreated.id, false, 'elias.re_is@hotmail.com', 'test-sub');
+const toggleOk = await toggleCertificatePublishAdmin(directCreated.id, false, 'reis.elias.ribeiro@gmail.com', 'test-sub');
 assert(toggleOk, 'toggleCertificatePublishAdmin deve retornar sucesso.');
-const deleteOk = await deleteCertificateAdmin(directCreated.id, 'elias.re_is@hotmail.com', 'test-sub');
+const deleteOk = await deleteCertificateAdmin(directCreated.id, 'reis.elias.ribeiro@gmail.com', 'test-sub');
 assert(deleteOk, 'deleteCertificateAdmin deve retornar sucesso.');
 console.log('  -> Execução direta dos serviços de criação, toggle e exclusão: OK');
 
@@ -131,7 +139,14 @@ console.log('\n[3/6] Testando rotas HTTP de listagem e criação de certificados
 const reqAnonList = new NextRequest('http://localhost:3000/api/admin/certificates');
 const resAnonList = await getCertificatesApi(reqAnonList);
 assert.strictEqual(resAnonList.status, 401, 'Listagem sem autenticação DEVE retornar 401.');
-console.log('  -> Bloqueio de acesso não autenticado na API de listagem (HTTP 401): OK');
+
+// 3.1b Rejeição de e-mail não autorizado (elias.re_is@hotmail.com) na API (HTTP 401)
+const reqLegacyEmailList = new NextRequest('http://localhost:3000/api/admin/certificates', {
+  headers: { cookie: `${SESSION_COOKIE_NAME}=${unauthorizedLegacyToken}` },
+});
+const resLegacyEmailList = await getCertificatesApi(reqLegacyEmailList);
+assert.strictEqual(resLegacyEmailList.status, 401, 'Sessão com elias.re_is@hotmail.com DEVE retornar 401 na API.');
+console.log('  -> Bloqueio de acesso não autenticado e de conta não autorizada na API de listagem (HTTP 401): OK');
 
 // 3.2 Listagem Autenticada (HTTP 200)
 const reqAuthList = new NextRequest('http://localhost:3000/api/admin/certificates?group=senai', {

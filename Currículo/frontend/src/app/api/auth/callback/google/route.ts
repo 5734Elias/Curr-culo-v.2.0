@@ -10,23 +10,39 @@ import {
   authorizeAdminUser,
 } from '@/lib/auth/googleOidc';
 import { createSessionToken } from '@/lib/auth/session';
-import { extractClientIp, hashIpForPrivacy } from '@/lib/rateLimit';
+import { extractClientIp, hashIpForPrivacy, checkAuthRateLimit } from '@/lib/rateLimit';
 
 export async function GET(req: NextRequest) {
+  // Identificação segura do IP para rate limiting e trilha de auditoria
+  const clientIp = extractClientIp(req.headers);
+  const clientIpHash = hashIpForPrivacy(clientIp || '127.0.0.1');
+
+  // 0. Rate limiting contra abuso no endpoint de callback OAuth
+  const rateLimit = await checkAuthRateLimit(clientIpHash);
+  if (!rateLimit.allowed) {
+    console.warn('[SECURITY] Rate limit atingido no callback Google OAuth.');
+    const redirectUrl = new URL('/admin/login?error=RateLimitExceeded', req.url);
+    const response = NextResponse.redirect(redirectUrl);
+    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    return response;
+  }
+
   const url = req.nextUrl;
   const searchParams = url.searchParams;
 
   // 1. Trata cancelamento ou erro devolvido pelo Google
   const errorParam = searchParams.get('error');
   if (errorParam) {
-    console.warn('[AUTH] Google OAuth retornou erro:', errorParam);
+    console.warn('[AUTH] Fluxo Google OAuth encerrado com código de retorno.');
     const redirectUrl = new URL(
       errorParam === 'access_denied'
         ? '/admin/login?error=Cancelled'
         : '/admin/login?error=GoogleAuthError',
       req.url
     );
-    return NextResponse.redirect(redirectUrl);
+    const response = NextResponse.redirect(redirectUrl);
+    response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
+    return response;
   }
 
   // 2. Validação contra CSRF através do state
@@ -51,10 +67,6 @@ export async function GET(req: NextRequest) {
     return response;
   }
 
-  // Identificação segura do IP para trilha de auditoria
-  const clientIp = extractClientIp(req.headers);
-  const clientIpHash = hashIpForPrivacy(clientIp || '127.0.0.1');
-
   try {
     // 4. Troca do código de autorização pelo token de ID do Google
     const { id_token } = await exchangeCodeForTokens(code);
@@ -72,11 +84,13 @@ export async function GET(req: NextRequest) {
       return response;
     }
 
-    // 6. Autorização estrita Zero Trust (e-mail e sub)
+    // 6. Autorização estrita Zero Trust (e-mail verificado reis.elias.ribeiro@gmail.com e sub imutável)
     const authResult = await authorizeAdminUser(googleProfile, clientIpHash);
     if (!authResult.authorized || !authResult.user) {
-      console.warn('[SECURITY] Usuário Google autenticado mas NÃO autorizado a acessar o CMS.');
-      const redirectUrl = new URL('/admin/login?error=AccessDenied', req.url);
+      console.warn('[SECURITY] Conta Google autenticada mas NÃO autorizada a acessar o CMS.');
+      const errorQuery =
+        authResult.reason === 'SUB_NOT_CONFIGURED' ? 'SubNotConfigured' : 'AccessDenied';
+      const redirectUrl = new URL(`/admin/login?error=${errorQuery}`, req.url);
       const response = NextResponse.redirect(redirectUrl);
       response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
       return response;
@@ -100,8 +114,8 @@ export async function GET(req: NextRequest) {
     response.cookies.delete(OAUTH_STATE_COOKIE_NAME);
 
     return response;
-  } catch (err) {
-    console.error('[AUTH_ERROR] Falha no processamento do callback Google OAuth:', err);
+  } catch {
+    console.error('[AUTH_ERROR] Falha no processamento do callback Google OAuth.');
     const redirectUrl = new URL('/admin/login?error=CallbackError', req.url);
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.delete(OAUTH_STATE_COOKIE_NAME);

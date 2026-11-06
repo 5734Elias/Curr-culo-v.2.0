@@ -1,6 +1,6 @@
 import { createRemoteJWKSet } from 'jose/jwks/remote';
 import { jwtVerify } from 'jose/jwt/verify';
-import { getAuthConfig } from './config';
+import { getAuthConfig, PUBLIC_CONTACT_ONLY_EMAIL } from './config';
 import { AdminSessionUser } from './session';
 import { prisma, isDatabaseAvailable } from '../prisma';
 
@@ -17,12 +17,18 @@ export interface GoogleIdTokenPayload {
 
 export interface AuthorizeResult {
   authorized: boolean;
-  reason?: 'EMAIL_MISMATCH' | 'SUB_MISMATCH' | 'EMAIL_NOT_VERIFIED' | 'CONFIG_ERROR';
+  reason?:
+    | 'EMAIL_MISMATCH'
+    | 'SUB_MISMATCH'
+    | 'SUB_NOT_CONFIGURED'
+    | 'EMAIL_NOT_VERIFIED'
+    | 'CONFIG_ERROR';
   user?: AdminSessionUser;
 }
 
 /**
- * Gera a URL do Google OAuth 2.0 para redirecionamento do administrador.
+ * Gera a URL do Google OAuth 2.0 / OpenID Connect para redirecionamento do administrador.
+ * O fluxo aproveita integralmente a autenticação de dois fatores (2FA) já ativa na conta Google.
  */
 export function buildGoogleAuthUrl(state: string): string {
   const config = getAuthConfig();
@@ -45,6 +51,7 @@ export function buildGoogleAuthUrl(state: string): string {
 
 /**
  * Troca o código de autorização retornado pelo Google pelos tokens de acesso e ID.
+ * Não registra tokens nem corpos brutos de resposta em logs para preservar sigilo absoluto.
  */
 export async function exchangeCodeForTokens(code: string): Promise<{ id_token: string; access_token: string }> {
   const config = getAuthConfig();
@@ -64,8 +71,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{ id_token: s
   });
 
   if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('[AUTH_ERROR] Falha na troca do código OAuth por tokens com o Google:', errorBody);
+    console.error(`[AUTH_ERROR] Falha na troca do código OAuth com o Google (HTTP ${response.status}).`);
     throw new Error('Falha ao comunicar com o provedor Google OAuth.');
   }
 
@@ -84,46 +90,63 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdToke
       audience: config.clientId,
     });
 
-    if (!payload.sub || !payload.email || typeof payload.email !== 'string') {
+    if (
+      !payload.sub ||
+      typeof payload.sub !== 'string' ||
+      !payload.email ||
+      typeof payload.email !== 'string'
+    ) {
       return null;
     }
 
     return {
       sub: payload.sub,
       email: payload.email,
-      email_verified: Boolean(payload.email_verified),
+      email_verified: payload.email_verified === true,
       name: (payload.name as string) || 'Administrador',
       picture: (payload.picture as string) || undefined,
     };
-  } catch (err) {
-    console.warn('[SECURITY] Falha na validação do Google ID Token:', err);
+  } catch {
+    console.warn('[SECURITY] Falha na validação criptográfica do Google ID Token.');
     return null;
   }
 }
 
 /**
- * Aplica a política estrita de autorização Zero Trust.
- * Apenas a conta Google explicitamente configurada pelo proprietário é autorizada.
+ * Aplica a política estrita de autorização Zero Trust:
+ * 1. O e-mail DEVE ter sido verificado pelo Google (email_verified === true).
+ * 2. O e-mail DEVE coincidir com GOOGLE_ADMIN_EMAIL (reis.elias.ribeiro@gmail.com) e jamais ser o e-mail de contato público.
+ * 3. Em produção, GOOGLE_ADMIN_SUB DEVE estar previamente configurado (não permite auto-registro pelo primeiro login).
+ * 4. O identificador imutável `sub` DEVE corresponder a GOOGLE_ADMIN_SUB.
+ * 5. Nenhum token, credencial ou identificador `sub` é exposto em logs.
  */
 export async function authorizeAdminUser(
   googleProfile: GoogleIdTokenPayload,
-  clientIpHash: string = 'unknown'
+  clientIpHash: string = 'unknown',
+  enforceProductionSub: boolean = process.env.NODE_ENV === 'production'
 ): Promise<AuthorizeResult> {
   const config = getAuthConfig();
 
   // 1. O e-mail deve ter sido verificado pelo próprio Google
-  if (!googleProfile.email_verified) {
-    console.warn('[SECURITY] Tentativa de login rejeitada: e-mail não verificado pelo Google:', googleProfile.email);
+  if (googleProfile.email_verified !== true) {
+    console.warn('[SECURITY] Tentativa de login rejeitada: e-mail Google não verificado.');
     return { authorized: false, reason: 'EMAIL_NOT_VERIFIED' };
   }
 
-  // 2. O e-mail deve ser idêntico ao e-mail do proprietário
-  if (googleProfile.email.toLowerCase().trim() !== config.adminEmail) {
-    console.warn(
-      `[SECURITY] Tentativa de acesso não autorizada: '${googleProfile.email}' tentou acessar o CMS (Esperado: '${config.adminEmail}').`
-    );
+  // 2. Validação do identificador sub no payload
+  if (!googleProfile.sub || typeof googleProfile.sub !== 'string' || !googleProfile.sub.trim()) {
+    console.warn('[SECURITY] Tentativa de login rejeitada: identificador sub ausente no perfil.');
+    return { authorized: false, reason: 'SUB_MISMATCH' };
+  }
 
-    // Registra tentativa não autorizada no log de auditoria
+  // 3. O e-mail deve ser idêntico ao e-mail oficial do administrador (e nunca o e-mail apenas de contato público)
+  const normalizedEmail = (googleProfile.email || '').toLowerCase().trim();
+  if (
+    normalizedEmail === PUBLIC_CONTACT_ONLY_EMAIL ||
+    normalizedEmail !== config.adminEmail
+  ) {
+    console.warn('[SECURITY] Tentativa de acesso administrativo negada: conta Google não autorizada.');
+
     if (await isDatabaseAvailable()) {
       try {
         await prisma.auditLog.create({
@@ -131,54 +154,78 @@ export async function authorizeAdminUser(
             action: 'UNAUTHORIZED_LOGIN_ATTEMPT',
             entityType: 'Authentication',
             ipHash: clientIpHash,
-            adminEmail: googleProfile.email.toLowerCase(),
-            adminSub: googleProfile.sub,
+            adminEmail: 'redacted-unauthorized',
+            adminSub: 'redacted-unauthorized',
             details: {
-              attemptedEmail: googleProfile.email,
-              expectedEmail: config.adminEmail,
+              reason: 'EMAIL_MISMATCH',
               timestamp: new Date().toISOString(),
             },
           },
         });
-      } catch (err) {
-        console.warn('[SECURITY] Erro ao gravar log de auditoria:', err);
+      } catch {
+        console.warn('[SECURITY] Erro ao gravar log de auditoria de tentativa rejeitada.');
       }
     }
 
     return { authorized: false, reason: 'EMAIL_MISMATCH' };
   }
 
-  // 3. Se GOOGLE_ADMIN_SUB estiver configurado, valida a imutabilidade do identificador Google
+  // 4. Em produção, exige que GOOGLE_ADMIN_SUB esteja previamente configurado (impede "first user claims admin")
+  if (enforceProductionSub && !config.adminSub) {
+    console.error('[SECURITY] GOOGLE_ADMIN_SUB não configurado em produção. Login bloqueado (Fail-Closed).');
+    return { authorized: false, reason: 'SUB_NOT_CONFIGURED' };
+  }
+
+  // 5. Vinculação estrita ao identificador imutável `sub` da conta Google
   if (config.adminSub && googleProfile.sub !== config.adminSub) {
-    console.warn(
-      `[SECURITY] Identificador sub divergente para '${googleProfile.email}': recebido '${googleProfile.sub}', esperado '${config.adminSub}'.`
-    );
+    console.warn('[SECURITY] Tentativa de acesso administrativo negada: identificador imutável (sub) divergente.');
+
+    if (await isDatabaseAvailable()) {
+      try {
+        await prisma.auditLog.create({
+          data: {
+            action: 'UNAUTHORIZED_LOGIN_ATTEMPT',
+            entityType: 'Authentication',
+            ipHash: clientIpHash,
+            adminEmail: normalizedEmail,
+            adminSub: 'redacted-mismatch',
+            details: {
+              reason: 'SUB_MISMATCH',
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+      } catch {
+        console.warn('[SECURITY] Erro ao gravar log de auditoria de divergência de sub.');
+      }
+    }
+
     return { authorized: false, reason: 'SUB_MISMATCH' };
   }
 
-  // 4. Usuário validado e autorizado com privilégio de SUPER_ADMIN
+  // 6. Usuário validado e autorizado com privilégio de SUPER_ADMIN
   const user: AdminSessionUser = {
     sub: googleProfile.sub,
-    email: googleProfile.email.toLowerCase().trim(),
+    email: normalizedEmail,
     name: googleProfile.name || 'Elias Ribeiro dos Reis',
     avatarUrl: googleProfile.picture || null,
     role: 'SUPER_ADMIN',
   };
 
-  // Se banco de dados estiver disponível, sincroniza e registra log de auditoria
-  if (await isDatabaseAvailable()) {
+  // Sincroniza registro apenas quando o sub configurado estiver validado
+  if (config.adminSub && (await isDatabaseAvailable())) {
     try {
       await prisma.administrator.upsert({
         where: { email: user.email },
         update: {
-          googleSub: user.sub,
+          googleSub: config.adminSub,
           name: user.name,
           avatarUrl: user.avatarUrl,
           lastLoginAt: new Date(),
         },
         create: {
           email: user.email,
-          googleSub: user.sub,
+          googleSub: config.adminSub,
           name: user.name,
           avatarUrl: user.avatarUrl,
           role: 'SUPER_ADMIN',
@@ -192,14 +239,14 @@ export async function authorizeAdminUser(
           entityType: 'Authentication',
           ipHash: clientIpHash,
           adminEmail: user.email,
-          adminSub: user.sub,
+          adminSub: 'verified-admin-sub',
           details: {
             loginTime: new Date().toISOString(),
           },
         },
       });
-    } catch (err) {
-      console.warn('[SECURITY] Falha ao persistir login de administrador no banco:', err);
+    } catch {
+      console.warn('[SECURITY] Falha ao persistir evento de login de administrador no banco.');
     }
   }
 

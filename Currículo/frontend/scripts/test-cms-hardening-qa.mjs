@@ -4,12 +4,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NextRequest } from 'next/server';
 import { SignJWT } from 'jose/jwt/sign';
-import { verifySessionToken } from '../src/lib/auth/session.ts';
+import { verifySessionToken, createSessionToken } from '../src/lib/auth/session.ts';
 import { getAdminSession } from '../src/lib/auth/serverAuth.ts';
-import { GET as getCertificatesRoute } from '../src/app/api/admin/certificates/route.ts';
-import { POST as postCertificatesRoute } from '../src/app/api/admin/certificates/route.ts';
+import { SESSION_COOKIE_NAME, OFFICIAL_ADMIN_EMAIL, PUBLIC_CONTACT_ONLY_EMAIL } from '../src/lib/auth/config.ts';
+import { GET as getCertificatesRoute, POST as postCertificatesRoute } from '../src/app/api/admin/certificates/route.ts';
+import { DELETE as deleteCertificateRoute } from '../src/app/api/admin/certificates/[id]/route.ts';
 import { POST as uploadMediaRoute } from '../src/app/api/admin/media/upload/route.ts';
+import { sanitizeFileName } from '../src/schemas/cms.ts';
 import { getPublishedCertificates, getPublishedProjects } from '../src/services/cmsDataService.ts';
+import { PROFILE } from '../src/data/profile.ts';
 import nextConfig from '../next.config.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +29,12 @@ console.log('===================================================================
 console.log('\n[1/6] Testando portões de segurança Zero-Trust e autenticação administrativa...');
 
 const dummySecret = new Uint8Array(32).fill(7);
+
+// 1.0 Validação de separação entre identidade administrativa e contato público
+assert.strictEqual(OFFICIAL_ADMIN_EMAIL, 'reis.elias.ribeiro@gmail.com');
+assert.strictEqual(PUBLIC_CONTACT_ONLY_EMAIL, 'elias.re_is@hotmail.com');
+assert.strictEqual(PROFILE.email, 'elias.re_is@hotmail.com', 'Contato público deve permanecer elias.re_is@hotmail.com');
+console.log('  -> Separação estrita entre login administrativo (Gmail) e contato público (Hotmail): OK');
 
 // 1.1 Sessão não autenticada (sem cookie) deve ser rejeitada imediatamente com HTTP 401
 const unauthReq = new NextRequest('http://localhost:3000/api/admin/certificates');
@@ -55,9 +64,9 @@ console.log('  -> Bloqueio imediato de uploads anônimos de mídia (HTTP 401): O
 // 1.4 Token expirado
 const expiredToken = await new SignJWT({
   sub: 'admin-google-sub-12345',
-  email: 'elias.re_is@hotmail.com',
+  email: 'reis.elias.ribeiro@gmail.com',
   name: 'Elias Ribeiro',
-  role: 'admin',
+  role: 'SUPER_ADMIN',
 })
   .setProtectedHeader({ alg: 'HS256' })
   .setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
@@ -72,9 +81,9 @@ console.log('  -> Rejeição estrita de tokens expirados: OK');
 const forgedSecret = new Uint8Array(32).fill(99);
 const forgedToken = await new SignJWT({
   sub: 'admin-google-sub-12345',
-  email: 'elias.re_is@hotmail.com',
+  email: 'reis.elias.ribeiro@gmail.com',
   name: 'Hacker',
-  role: 'admin',
+  role: 'SUPER_ADMIN',
 })
   .setProtectedHeader({ alg: 'HS256' })
   .setIssuedAt()
@@ -85,15 +94,32 @@ const forgedVerify = await verifySessionToken(forgedToken);
 assert.strictEqual(forgedVerify, null, 'Token assinado com chave espúria deve ser estritamente descartado.');
 console.log('  -> Rejeição de tokens com assinatura HMAC forjada: OK');
 
-// 1.6 getAdminSession com cookie inválido
+// 1.6 getAdminSession com cookie inválido ou conta não autorizada
 const forgedReq = new NextRequest('http://localhost:3000/api/admin/certificates', {
   headers: {
-    cookie: `admin_session=${forgedToken}`,
+    cookie: `${SESSION_COOKIE_NAME}=${forgedToken}`,
   },
 });
 const forgedSession = await getAdminSession(forgedReq);
 assert.strictEqual(forgedSession, null, 'getAdminSession deve retornar null para token forjado.');
-console.log('  -> getAdminSession descarta cookies com tokens inválidos: OK');
+
+const hotmailToken = await createSessionToken({
+  sub: 'admin-google-sub-12345',
+  email: 'elias.re_is@hotmail.com',
+  name: 'Contato Público',
+  role: 'SUPER_ADMIN',
+});
+const hotmailDeleteReq = new NextRequest('http://localhost:3000/api/admin/certificates/senai-seguranca-cibernetica', {
+  method: 'DELETE',
+  headers: {
+    cookie: `${SESSION_COOKIE_NAME}=${hotmailToken}`,
+  },
+});
+const hotmailDeleteRes = await deleteCertificateRoute(hotmailDeleteReq, {
+  params: Promise.resolve({ id: 'senai-seguranca-cibernetica' }),
+});
+assert.strictEqual(hotmailDeleteRes.status, 401, 'DELETE com elias.re_is@hotmail.com DEVE retornar 401.');
+console.log('  -> getAdminSession e rotas CRUD descartam tokens inválidos e bloqueiam elias.re_is@hotmail.com: OK');
 
 // ----------------------------------------------------------------------------
 // [2/6] PORTÕES DE SEGURANÇA NO UPLOAD DE MÍDIA (/api/admin/media/upload)
@@ -123,13 +149,21 @@ const isPng = fakePngContent.subarray(0, 4).equals(MAGIC_BYTE_HEADERS.png);
 assert.strictEqual(isPng, false, 'Arquivo falso mascarado de imagem deve falhar na validação binária.');
 console.log('  -> Deteção de mascaramento de arquivos por inspeção de Magic Bytes: OK');
 
-// 2.3 Prevenção de Path Traversal nos nomes de arquivos
-const traversalPayloads = ['../../etc/passwd', '..\\windows\\system32', 'foo/../../bar.pdf'];
+// 2.3 Prevenção Multiplataforma de Path Traversal nos nomes de arquivos (Linux + Windows)
+const traversalPayloads = [
+  '../../etc/passwd',
+  '..\\windows\\system32',
+  'foo/../../bar.pdf',
+  'C:\\Windows\\System32\\cmd.exe',
+  '....//....\\\\secret.pdf',
+];
 for (const p of traversalPayloads) {
-  const sanitized = path.basename(p);
-  assert(!sanitized.includes('..'), `Path traversal em "${p}" deve ser neutralizado.`);
+  const sanitized = sanitizeFileName(p);
+  assert(!sanitized.includes('..'), `Path traversal em "${p}" deve ser neutralizado (obteve "${sanitized}").`);
+  assert(!sanitized.includes('/'), `Separador POSIX '/' em "${p}" deve ser removido.`);
+  assert(!sanitized.includes('\\'), `Separador Windows '\\' em "${p}" deve ser removido.`);
 }
-console.log('  -> Neutralização de Path Traversal em nomes de arquivos: OK');
+console.log('  -> Neutralização multiplataforma (Linux/Windows) de Path Traversal em nomes de arquivos: OK');
 
 // ----------------------------------------------------------------------------
 // [3/6] HARDENING DE CABEÇALHOS HTTP E CONTENT SECURITY POLICY (CSP)
@@ -150,7 +184,7 @@ const csp = headerMap.get('Content-Security-Policy');
 assert(csp, 'Content-Security-Policy deve estar explicitamente configurada.');
 assert(csp.includes("default-src 'self'"), "CSP deve declarar default-src 'self'.");
 assert(csp.includes("object-src 'none'"), "CSP deve proibir plugins (object-src 'none').");
-assert(csp.includes("base-uri 'self'"), "CSP deve restringir base-uri.");
+assert(csp.includes("base-uri 'self'"), 'CSP deve restringir base-uri.');
 assert(csp.includes("frame-ancestors 'none'"), 'CSP deve impedir clickjacking (frame-ancestors).');
 console.log('  -> Diretivas críticas de Content-Security-Policy auditadas: OK');
 

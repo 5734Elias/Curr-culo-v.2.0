@@ -169,18 +169,18 @@ export async function seedCmsDatabase(client: PrismaClient = prisma): Promise<Se
   }
   console.log(`  -> ${projectsCount} projetos cadastrados.`);
 
-  // 4. Configuração Inicial do Administrador Autorizado (se variáveis presentes)
+  // 4. Configuração Inicial do Administrador Autorizado (somente quando GOOGLE_ADMIN_SUB estiver definido)
   console.log('[4/5] Verificando configuração inicial do Administrador...');
-  const adminEmail = process.env.GOOGLE_ADMIN_EMAIL?.trim() || 'elias.re_is@hotmail.com';
-  const adminSub = process.env.GOOGLE_ADMIN_SUB?.trim() || 'pending-first-google-login';
+  const adminEmail = (process.env.GOOGLE_ADMIN_EMAIL?.trim() || 'reis.elias.ribeiro@gmail.com').toLowerCase();
+  const adminSub = process.env.GOOGLE_ADMIN_SUB?.trim() || '';
   let adminConfigured = false;
 
-  if (adminEmail) {
+  if (adminEmail && adminEmail !== 'elias.re_is@hotmail.com' && adminSub) {
     await client.administrator.upsert({
       where: { email: adminEmail },
       update: {
         role: 'SUPER_ADMIN',
-        ...(adminSub !== 'pending-first-google-login' ? { googleSub: adminSub } : {}),
+        googleSub: adminSub,
       },
       create: {
         email: adminEmail,
@@ -190,7 +190,9 @@ export async function seedCmsDatabase(client: PrismaClient = prisma): Promise<Se
       },
     });
     adminConfigured = true;
-    console.log(`  -> Administrador '${adminEmail}' configurado com privilégios.`);
+    console.log(`  -> Administrador '${adminEmail}' vinculado ao GOOGLE_ADMIN_SUB com privilégios.`);
+  } else {
+    console.log('  -> GOOGLE_ADMIN_SUB ainda não definido no ambiente; vínculo será exigido em produção.');
   }
 
   // 5. Validação de Integridade Numérica e Carga Horária Estrita

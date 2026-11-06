@@ -361,3 +361,34 @@ export async function checkRateLimit(
   // Fallback in-memory para dev / CI
   return checkMemoryFallback(rateLimitKey, maxRequests, windowMs, 'memory-fallback');
 }
+
+/**
+ * Rate limiter específico para os endpoints de autenticação administrativa (/api/auth/google e /api/auth/callback/google).
+ * Protege contra abuso e tentativas automatizadas no fluxo OAuth.
+ */
+export async function checkAuthRateLimit(
+  hashedIp: string,
+  maxRequests = 10,
+  windowMs = 15 * 60 * 1000,
+  injectedFetch?: typeof fetch
+): Promise<RateLimitResult> {
+  const rateLimitKey = `ratelimit:auth:${hashedIp}`;
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+  if (redisUrl && redisToken) {
+    const distributedResult = await checkDistributedRedis(
+      redisUrl,
+      redisToken,
+      rateLimitKey,
+      maxRequests,
+      windowMs,
+      injectedFetch
+    );
+    if (distributedResult) {
+      return distributedResult;
+    }
+  }
+
+  return checkMemoryFallback(rateLimitKey, maxRequests, windowMs, 'memory-fallback');
+}

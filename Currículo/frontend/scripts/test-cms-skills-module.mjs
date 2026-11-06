@@ -27,11 +27,19 @@ console.log('===================================================================
 console.log('--- TEST SUITE: CMS SKILLS & COMPETENCIES MODULE (FASE 5) ---');
 console.log('====================================================================');
 
-// Cria token de administrador para os testes autorizados
+// Cria token de administrador para os testes autorizados (identidade oficial reis.elias.ribeiro@gmail.com)
 const adminToken = await createSessionToken({
   sub: 'google-sub-elias-test',
-  email: 'elias.re_is@hotmail.com',
+  email: 'reis.elias.ribeiro@gmail.com',
   name: 'Elias Ribeiro dos Reis',
+  role: 'SUPER_ADMIN',
+});
+
+// Token com o e-mail de contato público para comprovar bloqueio nas APIs administrativas
+const unauthorizedLegacyToken = await createSessionToken({
+  sub: 'google-sub-elias-test',
+  email: 'elias.re_is@hotmail.com',
+  name: 'Contato Público',
   role: 'SUPER_ADMIN',
 });
 
@@ -110,7 +118,7 @@ console.log(`  -> Busca textual encontrou ${searchSkills.skills.length} habilida
 // 2.4 Teste de Métodos Diretos de Manipulação
 const directSkill = await createSkillAdmin(
   validSkillInput,
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 assert(directSkill.id, 'createSkillAdmin deve retornar registro com ID.');
@@ -118,20 +126,20 @@ assert(directSkill.id, 'createSkillAdmin deve retornar registro com ID.');
 await updateSkillAdmin(
   directSkill.id,
   { proficiencyLevel: 'avancado' },
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 
 const toggleOk = await toggleSkillPublishAdmin(
   directSkill.id,
   false,
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 assert(toggleOk, 'toggleSkillPublishAdmin deve retornar true.');
 const deleteOk = await deleteSkillAdmin(
   directSkill.id,
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 assert(deleteOk, 'deleteSkillAdmin deve retornar true.');
@@ -146,7 +154,14 @@ console.log('\n[3/6] Testando rotas HTTP da API de Habilidades (/api/admin/skill
 const reqAnonGet = new NextRequest('http://localhost:3000/api/admin/skills');
 const resAnonGet = await getSkillsApi(reqAnonGet);
 assert.strictEqual(resAnonGet.status, 401, 'Acesso não autenticado DEVE retornar 401.');
-console.log('  -> Bloqueio de acesso anônimo na listagem de habilidades (HTTP 401): OK');
+
+// 3.1b Bloqueio de e-mail não autorizado (elias.re_is@hotmail.com) (HTTP 401)
+const reqLegacyEmailGet = new NextRequest('http://localhost:3000/api/admin/skills', {
+  headers: { cookie: `${SESSION_COOKIE_NAME}=${unauthorizedLegacyToken}` },
+});
+const resLegacyEmailGet = await getSkillsApi(reqLegacyEmailGet);
+assert.strictEqual(resLegacyEmailGet.status, 401, 'Sessão com elias.re_is@hotmail.com DEVE retornar 401.');
+console.log('  -> Bloqueio de acesso anônimo e de conta não autorizada na listagem de habilidades (HTTP 401): OK');
 
 // 3.2 Listagem Autenticada (HTTP 200)
 const reqAuthGet = new NextRequest('http://localhost:3000/api/admin/skills?category=desenvolvimento', {

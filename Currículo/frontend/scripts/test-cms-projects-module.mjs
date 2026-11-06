@@ -28,11 +28,19 @@ console.log('===================================================================
 console.log('--- TEST SUITE: CMS PROJECTS & MEDIA ASSETS MODULE (FASE 6) ---');
 console.log('====================================================================');
 
-// Cria token de administrador para os testes autorizados
+// Cria token de administrador para os testes autorizados (identidade oficial reis.elias.ribeiro@gmail.com)
 const adminToken = await createSessionToken({
   sub: 'google-sub-elias-test',
-  email: 'elias.re_is@hotmail.com',
+  email: 'reis.elias.ribeiro@gmail.com',
   name: 'Elias Ribeiro dos Reis',
+  role: 'SUPER_ADMIN',
+});
+
+// Token com o e-mail de contato público para comprovar bloqueio nas APIs administrativas
+const unauthorizedLegacyToken = await createSessionToken({
+  sub: 'google-sub-elias-test',
+  email: 'elias.re_is@hotmail.com',
+  name: 'Contato Público',
   role: 'SUPER_ADMIN',
 });
 
@@ -120,7 +128,7 @@ console.log(`  -> Busca textual encontrou ${searchProjects.total} projetos corre
 // 2.3 Métodos Diretos de Manipulação no cmsDataService
 const directCreated = await createProjectAdmin(
   validProjectInput,
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 assert(directCreated.id, 'createProjectAdmin deve retornar ID.');
@@ -128,21 +136,21 @@ assert(directCreated.id, 'createProjectAdmin deve retornar ID.');
 await updateProjectAdmin(
   directCreated.id,
   { title: 'Título Atualizado via Serviço' },
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 
 const toggleOk = await toggleProjectPublishAdmin(
   directCreated.id,
   false,
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 assert(toggleOk, 'toggleProjectPublishAdmin deve retornar true.');
 
 const deleteOk = await deleteProjectAdmin(
   directCreated.id,
-  'elias.re_is@hotmail.com',
+  'reis.elias.ribeiro@gmail.com',
   'test-sub'
 );
 assert(deleteOk, 'deleteProjectAdmin deve retornar true.');
@@ -159,7 +167,15 @@ const reqAnonUpload = new NextRequest('http://localhost:3000/api/admin/media/upl
 });
 const resAnonUpload = await postUploadApi(reqAnonUpload);
 assert.strictEqual(resAnonUpload.status, 401, 'Upload anônimo DEVE retornar 401.');
-console.log('  -> Bloqueio de acesso anônimo no upload (HTTP 401): OK');
+
+// 3.1b Bloqueio de e-mail não autorizado (elias.re_is@hotmail.com) no Upload (HTTP 401)
+const reqLegacyEmailUpload = new NextRequest('http://localhost:3000/api/admin/media/upload', {
+  method: 'POST',
+  headers: { cookie: `${SESSION_COOKIE_NAME}=${unauthorizedLegacyToken}` },
+});
+const resLegacyEmailUpload = await postUploadApi(reqLegacyEmailUpload);
+assert.strictEqual(resLegacyEmailUpload.status, 401, 'Upload com elias.re_is@hotmail.com DEVE retornar 401.');
+console.log('  -> Bloqueio de acesso anônimo e não autorizado no upload (HTTP 401): OK');
 
 // 3.2 Rejeição de Requisição Não Multipart (HTTP 400)
 const reqNonMultipart = new NextRequest('http://localhost:3000/api/admin/media/upload', {

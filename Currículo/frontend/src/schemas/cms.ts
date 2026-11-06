@@ -169,4 +169,25 @@ export type CreateProjectInput = z.infer<typeof CreateProjectSchema>;
 export const UpdateProjectSchema = CreateProjectSchema.partial();
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>;
 
+/**
+ * Sanitiza nomes de arquivos de forma multiplataforma (POSIX Linux/macOS + Windows),
+ * neutralizando separadores de diretórios (/ e \), sequências de Path Traversal (..) e caracteres de controle.
+ */
+export function sanitizeFileName(rawName: string): string {
+  if (!rawName || typeof rawName !== 'string') {
+    return 'unnamed-file';
+  }
+
+  // Converte barras invertidas do Windows (\) em barras POSIX (/) para comportamento determinístico em Linux e Windows
+  const normalized = rawName.replace(/\\/g, '/').split('/').pop() || 'unnamed-file';
+
+  // Remove sequências '..', caracteres de controle e símbolos inválidos
+  const cleaned = normalized
+    .replace(/\.\.+/g, '')
+    .replace(/[\x00-\x1f\x80-\x9f/?<>\\:*|"]/g, '_')
+    .trim();
+
+  return (cleaned || 'unnamed-file').slice(0, 150);
+}
+
 

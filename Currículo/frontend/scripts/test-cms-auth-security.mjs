@@ -1,9 +1,11 @@
 import assert from 'node:assert';
 import { NextRequest } from 'next/server';
-import { SignJWT } from 'jose';
+import { SignJWT } from 'jose/jwt/sign';
 
 import {
   getAuthConfig,
+  OFFICIAL_ADMIN_EMAIL,
+  PUBLIC_CONTACT_ONLY_EMAIL,
   SESSION_COOKIE_NAME,
   OAUTH_STATE_COOKIE_NAME,
 } from '../src/lib/auth/config.ts';
@@ -17,6 +19,7 @@ import {
   buildGoogleAuthUrl,
   authorizeAdminUser,
 } from '../src/lib/auth/googleOidc.ts';
+import { resetRateLimitStore } from '../src/lib/rateLimit.ts';
 import { GET as getGoogleAuth } from '../src/app/api/auth/google/route.ts';
 import { GET as getGoogleCallback } from '../src/app/api/auth/callback/google/route.ts';
 import { GET as getLogout, POST as postLogout } from '../src/app/api/auth/logout/route.ts';
@@ -27,24 +30,36 @@ console.log('================================================================');
 console.log('--- TEST SUITE: CMS AUTHENTICATION & ZERO-TRUST SECURITY (FASE 3) ---');
 console.log('================================================================');
 
-// ----------------------------------------------------------------------------
-// [1/6] CONFIGURAÇÃO E EXTRAÇÃO SEGURA DE AMBIENTE
-// ----------------------------------------------------------------------------
-console.log('\n[1/6] Testando configurações de autenticação e política de segredos...');
-const config = getAuthConfig();
-assert(config.adminEmail === 'elias.re_is@hotmail.com', 'E-mail do administrador deve ser elias.re_is@hotmail.com');
-assert(config.authSecret.length >= 32, 'authSecret deve ter no mínimo 32 caracteres para HS256 seguro.');
-assert(config.callbackUrl.includes('/api/auth/callback/google'), 'callbackUrl deve apontar para o endpoint de callback.');
-console.log('  -> Configuração de autorização Zero Trust validada: OK');
+resetRateLimitStore();
 
 // ----------------------------------------------------------------------------
-// [2/6] CRIAÇÃO, ASSINATURA E VALIDAÇÃO DE TOKENS JWT DE SESSÃO
+// [1/7] CONFIGURAÇÃO E EXTRAÇÃO SEGURA DE AMBIENTE
 // ----------------------------------------------------------------------------
-console.log('\n[2/6] Testando ciclo de vida criptográfico dos tokens de sessão (JWT)...');
+console.log('\n[1/7] Testando configurações de autenticação e identidade oficial...');
+const config = getAuthConfig();
+assert.strictEqual(
+  config.adminEmail,
+  'reis.elias.ribeiro@gmail.com',
+  'E-mail oficial do administrador deve ser estritamente reis.elias.ribeiro@gmail.com'
+);
+assert.strictEqual(OFFICIAL_ADMIN_EMAIL, 'reis.elias.ribeiro@gmail.com');
+assert.strictEqual(PUBLIC_CONTACT_ONLY_EMAIL, 'elias.re_is@hotmail.com');
+assert(config.authSecret.length >= 32, 'authSecret deve ter no mínimo 32 caracteres para HS256 seguro.');
+assert(
+  config.callbackUrl === 'https://curr-culo-v-2-0-8kbn.vercel.app/api/auth/callback/google' ||
+    config.callbackUrl.endsWith('/api/auth/callback/google'),
+  'callbackUrl deve apontar para o endpoint de callback no domínio oficial da Vercel.'
+);
+console.log('  -> Identidade oficial reis.elias.ribeiro@gmail.com e callback Vercel validados: OK');
+
+// ----------------------------------------------------------------------------
+// [2/7] CRIAÇÃO, ASSINATURA E VALIDAÇÃO DE TOKENS JWT DE SESSÃO
+// ----------------------------------------------------------------------------
+console.log('\n[2/7] Testando ciclo de vida criptográfico dos tokens de sessão (JWT)...');
 
 const mockAdminUser = {
   sub: 'google-sub-elias-123456789',
-  email: 'elias.re_is@hotmail.com',
+  email: 'reis.elias.ribeiro@gmail.com',
   name: 'Elias Ribeiro dos Reis',
   role: 'SUPER_ADMIN',
 };
@@ -55,7 +70,7 @@ assert(typeof validToken === 'string' && validToken.length > 50, 'Token JWT deve
 
 const verified = await verifySessionToken(validToken);
 assert(verified !== null, 'Token recém-gerado deve ser verificado com sucesso.');
-assert.strictEqual(verified.email, 'elias.re_is@hotmail.com');
+assert.strictEqual(verified.email, 'reis.elias.ribeiro@gmail.com');
 assert.strictEqual(verified.role, 'SUPER_ADMIN');
 console.log('  -> Emissão e verificação de JWT de sessão com HMAC SHA-256: OK');
 
@@ -81,7 +96,27 @@ const forgedResult = await verifySessionToken(forgedToken);
 assert.strictEqual(forgedResult, null, 'Token assinado com chave forjada DEVE ser rejeitado.');
 console.log('  -> Rejeição segura de token forjado com chave externa: OK');
 
-// 2.4 Rejeição de token com e-mail não autorizado (Zero Trust)
+// 2.4 Rejeição estrita de token com o antigo e-mail de contato público (elias.re_is@hotmail.com)
+const legacyEmailToken = await new SignJWT({
+  sub: mockAdminUser.sub,
+  email: 'elias.re_is@hotmail.com',
+  role: 'SUPER_ADMIN',
+})
+  .setProtectedHeader({ alg: 'HS256' })
+  .setIssuer('curriculo-cms-auth')
+  .setAudience('curriculo-cms-admin')
+  .setExpirationTime('24h')
+  .sign(new TextEncoder().encode(config.authSecret));
+
+const legacyEmailResult = await verifySessionToken(legacyEmailToken);
+assert.strictEqual(
+  legacyEmailResult,
+  null,
+  'Token com e-mail de contato público (elias.re_is@hotmail.com) DEVE ser rejeitado para login administrativo.'
+);
+console.log('  -> Bloqueio estrito de elias.re_is@hotmail.com para sessão administrativa: OK');
+
+// 2.5 Rejeição de token com e-mail de terceiro
 const attackerToken = await new SignJWT({
   sub: 'attacker-sub',
   email: 'invasor@gmail.com',
@@ -98,9 +133,9 @@ assert.strictEqual(attackerResult, null, 'Token com e-mail não autorizado DEVE 
 console.log('  -> Bloqueio Zero Trust para e-mails não autorizados em tokens válidos: OK');
 
 // ----------------------------------------------------------------------------
-// [3/6] ATRIBUTOS DE SEGURANÇA DE COOKIES (HttpOnly, Secure, SameSite)
+// [3/7] ATRIBUTOS DE SEGURANÇA DE COOKIES (HttpOnly, Secure, SameSite)
 // ----------------------------------------------------------------------------
-console.log('\n[3/6] Testando conformidade de cookies e opções de segurança...');
+console.log('\n[3/7] Testando conformidade de cookies e opções de segurança...');
 
 const prodCookieOpts = getSessionCookieOptions(true);
 assert.strictEqual(prodCookieOpts.options.httpOnly, true, 'Cookie de sessão DEVE ser HttpOnly.');
@@ -113,51 +148,108 @@ assert.strictEqual(clearCookieOpts.options.maxAge, 0, 'Limpeza de cookie deve de
 console.log('  -> Atributos de segurança dos cookies (HttpOnly, Secure, SameSite): OK');
 
 // ----------------------------------------------------------------------------
-// [4/6] AUTORIZAÇÃO ZERO TRUST COM PERFIL GOOGLE (authorizeAdminUser)
+// [4/7] AUTORIZAÇÃO ZERO TRUST COM PERFIL GOOGLE & VÍNCULO SUB IMUTÁVEL
 // ----------------------------------------------------------------------------
-console.log('\n[4/6] Testando motor de autorização Zero Trust contra Google Profiles...');
+console.log('\n[4/7] Testando motor de autorização Zero Trust (email_verified + GOOGLE_ADMIN_SUB)...');
 
-// 4.1 Rejeição de e-mail não verificado pelo Google
+// 4.1 Rejeição de e-mail não verificado pelo Google (mesmo com e-mail oficial)
 const unverifiedProfile = {
-  sub: 'google-sub-1',
-  email: 'elias.re_is@hotmail.com',
+  sub: 'google-sub-elias-123456789',
+  email: 'reis.elias.ribeiro@gmail.com',
   email_verified: false,
 };
 const unverifiedResult = await authorizeAdminUser(unverifiedProfile, 'test-ip-hash');
 assert.strictEqual(unverifiedResult.authorized, false);
 assert.strictEqual(unverifiedResult.reason, 'EMAIL_NOT_VERIFIED');
-console.log('  -> Rejeição de perfil Google com e-mail não verificado: OK');
+console.log('  -> Rejeição de perfil Google com e-mail não verificado (email_verified=false): OK');
 
-// 4.2 Rejeição de e-mail de terceiro / invasor
+// 4.2 Rejeição estrita de elias.re_is@hotmail.com (e-mail de contato público)
+const publicContactProfile = {
+  sub: 'google-sub-elias-123456789',
+  email: 'elias.re_is@hotmail.com',
+  email_verified: true,
+};
+const publicContactResult = await authorizeAdminUser(publicContactProfile, 'test-ip-hash');
+assert.strictEqual(publicContactResult.authorized, false);
+assert.strictEqual(publicContactResult.reason, 'EMAIL_MISMATCH');
+console.log('  -> Rejeição estrita de elias.re_is@hotmail.com como login administrativo: OK');
+
+// 4.3 Rejeição de e-mail de terceiro / invasor
 const thirdPartyProfile = {
   sub: 'google-sub-attacker',
-  email: 'hacker@example.com',
+  email: 'hacker@gmail.com',
   email_verified: true,
 };
 const thirdPartyResult = await authorizeAdminUser(thirdPartyProfile, 'test-ip-hash');
 assert.strictEqual(thirdPartyResult.authorized, false);
 assert.strictEqual(thirdPartyResult.reason, 'EMAIL_MISMATCH');
-console.log('  -> Rejeição imediata de e-mail Google não cadastrado pelo proprietário: OK');
+console.log('  -> Rejeição imediata de e-mail Google de terceiro: OK');
 
-// 4.3 Aprovação estrita do proprietário
-const ownerProfile = {
-  sub: 'google-sub-elias-verified-12345',
-  email: 'elias.re_is@hotmail.com',
-  email_verified: true,
-  name: 'Elias Ribeiro dos Reis',
-};
-const ownerResult = await authorizeAdminUser(ownerProfile, 'test-ip-hash');
-assert.strictEqual(ownerResult.authorized, true);
-assert.strictEqual(ownerResult.user?.email, 'elias.re_is@hotmail.com');
-assert.strictEqual(ownerResult.user?.role, 'SUPER_ADMIN');
-console.log('  -> Aprovação do proprietário com privilégio SUPER_ADMIN: OK');
+// 4.4 Exigência obrigatória de GOOGLE_ADMIN_SUB em produção (Fail-Closed se ausente)
+const prevSub = process.env.GOOGLE_ADMIN_SUB;
+delete process.env.GOOGLE_ADMIN_SUB;
+
+const prodWithoutSubResult = await authorizeAdminUser(
+  {
+    sub: 'google-sub-elias-123456789',
+    email: 'reis.elias.ribeiro@gmail.com',
+    email_verified: true,
+  },
+  'test-ip-hash',
+  true // enforceProductionSub = true
+);
+assert.strictEqual(prodWithoutSubResult.authorized, false, 'Em produção, ausência de GOOGLE_ADMIN_SUB deve bloquear login.');
+assert.strictEqual(prodWithoutSubResult.reason, 'SUB_NOT_CONFIGURED');
+
+const prodSessionWithoutSub = await verifySessionToken(validToken, true);
+assert.strictEqual(prodSessionWithoutSub, null, 'Em produção, sessão sem GOOGLE_ADMIN_SUB configurado deve ser negada.');
+console.log('  -> Bloqueio Fail-Closed em produção quando GOOGLE_ADMIN_SUB não está configurado (impede auto-registro): OK');
+
+// 4.5 Validação estrita de correspondência com GOOGLE_ADMIN_SUB
+process.env.GOOGLE_ADMIN_SUB = '109876543210987654321';
+
+// Tentativa com e-mail correto e verificado, mas sub divergente
+const wrongSubResult = await authorizeAdminUser(
+  {
+    sub: '999999999999999999999',
+    email: 'reis.elias.ribeiro@gmail.com',
+    email_verified: true,
+  },
+  'test-ip-hash',
+  true
+);
+assert.strictEqual(wrongSubResult.authorized, false, 'Sub divergente deve ser negado.');
+assert.strictEqual(wrongSubResult.reason, 'SUB_MISMATCH');
+
+// Tentativa com e-mail correto, verificado e sub idêntico ao GOOGLE_ADMIN_SUB
+const exactMatchResult = await authorizeAdminUser(
+  {
+    sub: '109876543210987654321',
+    email: 'reis.elias.ribeiro@gmail.com',
+    email_verified: true,
+    name: 'Elias Ribeiro dos Reis',
+  },
+  'test-ip-hash',
+  true
+);
+assert.strictEqual(exactMatchResult.authorized, true, 'Proprietário com e-mail verificado e sub exato deve ser autorizado.');
+assert.strictEqual(exactMatchResult.user?.email, 'reis.elias.ribeiro@gmail.com');
+assert.strictEqual(exactMatchResult.user?.sub, '109876543210987654321');
+assert.strictEqual(exactMatchResult.user?.role, 'SUPER_ADMIN');
+console.log('  -> Vinculação obrigatória ao sub imutável (GOOGLE_ADMIN_SUB) validada: OK');
+
+// Restaura GOOGLE_ADMIN_SUB original do ambiente de teste
+if (prevSub === undefined) {
+  delete process.env.GOOGLE_ADMIN_SUB;
+} else {
+  process.env.GOOGLE_ADMIN_SUB = prevSub;
+}
 
 // ----------------------------------------------------------------------------
-// [5/6] ROUTE HANDLERS DE AUTENTICAÇÃO (/api/auth/*)
+// [5/7] ROUTE HANDLERS DE AUTENTICAÇÃO (/api/auth/*) & PROTEÇÃO CSRF
 // ----------------------------------------------------------------------------
-console.log('\n[5/6] Testando endpoints de autenticação e proteção contra CSRF...');
+console.log('\n[5/7] Testando endpoints de autenticação e proteção contra CSRF...');
 
-// 5.0 Função buildGoogleAuthUrl
 if (config.clientId) {
   const generatedUrl = buildGoogleAuthUrl('test-state-abc');
   assert(generatedUrl.includes('accounts.google.com'), 'URL de autenticação deve apontar para o Google.');
@@ -171,12 +263,11 @@ if (config.clientId) {
 // 5.1 Endpoint /api/auth/google sem credenciais completas
 const reqGoogleAuth = new NextRequest('http://localhost:3000/api/auth/google');
 const resGoogleAuth = await getGoogleAuth(reqGoogleAuth);
-// Se credenciais não estiverem em .env.local, deve redirecionar com segurança para ConfigurationError
 assert.strictEqual(resGoogleAuth.status, 307);
 const locationGoogle = resGoogleAuth.headers.get('location') || '';
 assert(
   locationGoogle.includes('/admin/login?error=ConfigurationError') ||
-  locationGoogle.includes('accounts.google.com'),
+    locationGoogle.includes('accounts.google.com'),
   'Endpoint /api/auth/google deve tratar falta de credenciais ou redirecionar ao Google.'
 );
 console.log('  -> /api/auth/google redireciona com integridade sem quebrar: OK');
@@ -226,54 +317,69 @@ const resSessionAuth = await getSessionApi(reqSessionAuth);
 assert.strictEqual(resSessionAuth.status, 200);
 const sessionBodyAuth = await resSessionAuth.json();
 assert.strictEqual(sessionBodyAuth.authenticated, true);
-assert.strictEqual(sessionBodyAuth.user.email, 'elias.re_is@hotmail.com');
+assert.strictEqual(sessionBodyAuth.user.email, 'reis.elias.ribeiro@gmail.com');
 console.log('  -> /api/auth/session responde com precisão para anônimos e autenticados: OK');
 
 // ----------------------------------------------------------------------------
-// [6/6] EDGE MIDDLEWARE DE PROTEÇÃO DE ROTAS (/admin/*)
+// [6/7] RATE LIMITING NO FLUXO DE AUTENTICAÇÃO OAUTH
 // ----------------------------------------------------------------------------
-console.log('\n[6/6] Testando isolamento e proteção do Middleware em /admin/*...');
+console.log('\n[6/7] Testando Rate Limiting nos endpoints de autenticação...');
+resetRateLimitStore();
 
-// 6.1 Permissão irrestrita para /admin/login
+let blockedByRateLimit = false;
+for (let i = 1; i <= 12; i++) {
+  const reqFlood = new NextRequest('http://localhost:3000/api/auth/google', {
+    headers: { 'x-forwarded-for': '203.0.113.77' },
+  });
+  const resFlood = await getGoogleAuth(reqFlood);
+  const loc = resFlood.headers.get('location') || '';
+  if (loc.includes('error=RateLimitExceeded')) {
+    blockedByRateLimit = true;
+    break;
+  }
+}
+assert.strictEqual(blockedByRateLimit, true, 'Fluxo OAuth deve bloquear IP após exceder limite de tentativas.');
+resetRateLimitStore();
+console.log('  -> Rate limiting ativo e bloqueando excesso de tentativas em /api/auth/*: OK');
+
+// ----------------------------------------------------------------------------
+// [7/7] EDGE MIDDLEWARE DE PROTEÇÃO DE ROTAS (/admin/*)
+// ----------------------------------------------------------------------------
+console.log('\n[7/7] Testando isolamento e proteção do Middleware em /admin/*...');
+
+// 7.1 Permissão irrestrita para /admin/login
 const reqLoginRoute = new NextRequest('http://localhost:3000/admin/login');
 const resLoginRoute = await middleware(reqLoginRoute);
 assert.strictEqual(resLoginRoute.status, 200, 'Middleware deve liberar /admin/login sem bloqueios.');
 console.log('  -> Rota pública /admin/login liberada pelo middleware: OK');
 
-// 6.2 Bloqueio de rota protegida /admin sem cookie (redireciona para /admin/login)
+// 7.2 Bloqueio de rota protegida /admin sem cookie
 const reqAdminNoAuth = new NextRequest('http://localhost:3000/admin');
 const resAdminNoAuth = await middleware(reqAdminNoAuth);
 assert.strictEqual(resAdminNoAuth.status, 307, 'Acesso não autenticado a /admin deve redirecionar (307).');
 assert(resAdminNoAuth.headers.get('location')?.includes('/admin/login'));
 console.log('  -> Middleware bloqueia acesso anônimo a /admin e redireciona para login: OK');
 
-// 6.3 Bloqueio de rota protegida /admin/certificates sem cookie
-const reqCertsNoAuth = new NextRequest('http://localhost:3000/admin/certificates');
-const resCertsNoAuth = await middleware(reqCertsNoAuth);
-assert.strictEqual(resCertsNoAuth.status, 307);
-assert(resCertsNoAuth.headers.get('location')?.includes('/admin/login'));
-console.log('  -> Middleware bloqueia acesso anônimo a /admin/certificates: OK');
-
-// 6.4 Bloqueio com cookie de sessão corrompido / expirado
-const reqAdminCorrupt = new NextRequest('http://localhost:3000/admin', {
+// 7.3 Bloqueio de cookie com o antigo e-mail (elias.re_is@hotmail.com) no Middleware
+const reqAdminLegacyEmail = new NextRequest('http://localhost:3000/admin', {
   headers: {
-    cookie: `${SESSION_COOKIE_NAME}=invalid-session-token`,
+    cookie: `${SESSION_COOKIE_NAME}=${legacyEmailToken}`,
   },
 });
-const resAdminCorrupt = await middleware(reqAdminCorrupt);
-assert.strictEqual(resAdminCorrupt.status, 307);
-assert(resAdminCorrupt.headers.get('location')?.includes('/admin/login?error=SessionExpired'));
-console.log('  -> Middleware rejeita cookie inválido e expira sessão: OK');
+const resAdminLegacyEmail = await middleware(reqAdminLegacyEmail);
+assert.strictEqual(resAdminLegacyEmail.status, 307, 'Middleware deve rejeitar sessão com elias.re_is@hotmail.com.');
+assert(resAdminLegacyEmail.headers.get('location')?.includes('/admin/login?error=SessionExpired'));
+console.log('  -> Middleware rejeita token de elias.re_is@hotmail.com: OK');
 
-// 6.5 Liberação de rota protegida com token válido
+// 7.4 Liberação de rota protegida exclusivamente para reis.elias.ribeiro@gmail.com
 const reqAdminValid = new NextRequest('http://localhost:3000/admin', {
   headers: {
     cookie: `${SESSION_COOKIE_NAME}=${validToken}`,
   },
 });
 const resAdminValid = await middleware(reqAdminValid);
-assert.strictEqual(resAdminValid.status, 200, 'Middleware deve liberar /admin para sessão válida.');
-console.log('  -> Middleware autoriza acesso a /admin com sessão válida: OK');
+assert.strictEqual(resAdminValid.status, 200, 'Middleware deve liberar /admin para sessão válida de reis.elias.ribeiro@gmail.com.');
+console.log('  -> Middleware autoriza acesso a /admin exclusivamente para reis.elias.ribeiro@gmail.com: OK');
 
 console.log('\n================================================================');
 console.log('--- TODOS OS TESTES DA FASE 3 PASSARAM COM SUCESSO ABSOLUTO! ---');

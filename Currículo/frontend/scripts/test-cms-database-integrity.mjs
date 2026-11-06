@@ -169,6 +169,15 @@ for (const envVar of requiredEnvVars) {
   assert(envExampleContent.includes(envVar), `Variável '${envVar}' deve estar documentada em .env.example.`);
 }
 
+assert(
+  envExampleContent.includes('GOOGLE_ADMIN_EMAIL="reis.elias.ribeiro@gmail.com"'),
+  '.env.example deve configurar GOOGLE_ADMIN_EMAIL com reis.elias.ribeiro@gmail.com.'
+);
+assert(
+  envExampleContent.includes('CONTACT_DESTINATION_EMAIL="elias.re_is@hotmail.com"'),
+  '.env.example deve manter CONTACT_DESTINATION_EMAIL com elias.re_is@hotmail.com apenas para contato público.'
+);
+
 // Certificar que não há senhas reais ou tokens comprometidos
 assert(
   !envExampleContent.includes('ghp_'),
