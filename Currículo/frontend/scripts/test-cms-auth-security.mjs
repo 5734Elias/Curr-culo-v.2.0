@@ -51,7 +51,7 @@ assert.strictEqual(OFFICIAL_ADMIN_EMAIL, 'reis.elias.ribeiro@gmail.com');
 assert.strictEqual(PUBLIC_CONTACT_ONLY_EMAIL, 'elias.re_is@hotmail.com');
 assert(config.authSecret.length >= 32, 'authSecret deve ter no mínimo 32 caracteres para HS256 seguro.');
 assert(
-  config.callbackUrl === 'https://curr-culo-v-2-0-8kbn.vercel.app/api/auth/callback/google' ||
+  config.callbackUrl === 'https://curriculo-v3-admin.vercel.app/api/auth/callback/google' ||
     config.callbackUrl.endsWith('/api/auth/callback/google'),
   'callbackUrl deve apontar para o endpoint de callback no domínio oficial da Vercel.'
 );

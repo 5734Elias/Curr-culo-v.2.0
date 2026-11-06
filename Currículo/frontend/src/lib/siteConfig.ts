@@ -5,14 +5,14 @@
  * quando um domínio próprio for adquirido e conectado futuramente.
  */
 
-export const DEFAULT_VERCEL_DOMAIN = 'https://curr-culo-v-2-0-8kbn.vercel.app';
+export const DEFAULT_VERCEL_DOMAIN = 'https://curriculo-v3-admin.vercel.app';
 
 /**
  * Retorna a URL base canônica do portfólio (sem barra final).
  * Ordem de prioridade:
  * 1. `NEXT_PUBLIC_SITE_URL` (definida quando um domínio próprio for adquirido, ex: https://eliasreis.dev)
  * 2. `VERCEL_PROJECT_PRODUCTION_URL` (injetada automaticamente pela Vercel com o domínio principal do projeto)
- * 3. `DEFAULT_VERCEL_DOMAIN` (`https://curr-culo-v-2-0-8kbn.vercel.app`)
+ * 3. `DEFAULT_VERCEL_DOMAIN` (`https://curriculo-v3-admin.vercel.app`)
  */
 export function getSiteUrl(): string {
   const explicitUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();

@@ -11,7 +11,7 @@
 
 export const OFFICIAL_ADMIN_EMAIL = 'reis.elias.ribeiro@gmail.com';
 export const PUBLIC_CONTACT_ONLY_EMAIL = 'elias.re_is@hotmail.com';
-export const OFFICIAL_PRODUCTION_SITE_URL = 'https://curr-culo-v-2-0-8kbn.vercel.app';
+export const OFFICIAL_PRODUCTION_SITE_URL = 'https://curriculo-v3-admin.vercel.app';
 
 export type ConfigVarStatus = 'CONFIGURADA' | 'AUSENTE' | 'INVÁLIDA';
 
@@ -31,6 +31,7 @@ export interface EnvironmentDiagnosticReport {
     GOOGLE_ADMIN_SUB: ConfigVarStatus;
     AUTH_SECRET: ConfigVarStatus;
     NEXTAUTH_URL: ConfigVarStatus;
+    NEXT_PUBLIC_SITE_URL: ConfigVarStatus;
     DATABASE_URL: ConfigVarStatus;
     BLOB_READ_WRITE_TOKEN: ConfigVarStatus;
   };
@@ -225,6 +226,13 @@ export function getEnvironmentDiagnostics(): EnvironmentDiagnosticReport {
   const urlCheck = validateSiteAndCallbackUrl(rawNextAuthUrl, isProduction);
   const nextAuthUrlStatus: ConfigVarStatus = urlCheck.isValid ? 'CONFIGURADA' : 'INVÁLIDA';
 
+  const rawPublicSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || OFFICIAL_PRODUCTION_SITE_URL;
+  const publicSiteUrlCheck = validateSiteAndCallbackUrl(rawPublicSiteUrl, isProduction);
+  const nextPublicSiteUrlStatus: ConfigVarStatus = publicSiteUrlCheck.isValid
+    ? 'CONFIGURADA'
+    : 'INVÁLIDA';
+
   const rawDatabaseUrl = process.env.DATABASE_URL?.trim() || '';
   const databaseUrlStatus: ConfigVarStatus = !rawDatabaseUrl
     ? 'AUSENTE'
@@ -243,7 +251,7 @@ export function getEnvironmentDiagnostics(): EnvironmentDiagnosticReport {
   const authConfig = getAuthConfig();
 
   return {
-    projectTarget: 'curr-culo-v-2-0-8kbn',
+    projectTarget: 'curriculo-v3-admin',
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
     variables: {
       GOOGLE_CLIENT_ID: clientIdStatus,
@@ -252,6 +260,7 @@ export function getEnvironmentDiagnostics(): EnvironmentDiagnosticReport {
       GOOGLE_ADMIN_SUB: adminSubStatus,
       AUTH_SECRET: authSecretStatus,
       NEXTAUTH_URL: nextAuthUrlStatus,
+      NEXT_PUBLIC_SITE_URL: nextPublicSiteUrlStatus,
       DATABASE_URL: databaseUrlStatus,
       BLOB_READ_WRITE_TOKEN: blobTokenStatus,
     },
