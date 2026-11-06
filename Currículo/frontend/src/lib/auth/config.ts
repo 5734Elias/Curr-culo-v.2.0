@@ -62,11 +62,104 @@ export interface AuthConfig {
   diagnosticCode: AuthDiagnosticCode;
 }
 
+const KNOWN_ENV_PLACEHOLDERS = new Set([
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_ADMIN_EMAIL',
+  'GOOGLE_ADMIN_SUB',
+  'AUTH_SECRET',
+  'NEXTAUTH_URL',
+  'NEXT_PUBLIC_SITE_URL',
+  'DATABASE_URL',
+  'BLOB_READ_WRITE_TOKEN',
+  'CURRICULO_ELIAS',
+  'SEU-CLIENT-ID',
+  'SEU-CLIENT-SECRET',
+  '123456789012345678901',
+]);
+
+/**
+ * Remove espaços nas extremidades e aspas acidentais ("..." ou '...') coladas em variáveis de ambiente.
+ */
+export function cleanEnvValue(raw?: string): string {
+  if (!raw) return '';
+  return raw.trim().replace(/^["']+|["']+$/g, '').trim();
+}
+
+function isPlaceholderOrVarName(val: string, varName: string): boolean {
+  const upper = val.toUpperCase();
+  if (upper === varName.toUpperCase()) return true;
+  if (KNOWN_ENV_PLACEHOLDERS.has(upper)) return true;
+  return false;
+}
+
+export function evaluateClientIdStatus(rawVal?: string): {
+  value: string;
+  status: ConfigVarStatus;
+} {
+  const val = cleanEnvValue(rawVal);
+  if (!val) {
+    return { value: '', status: 'AUSENTE' };
+  }
+
+  const isValid =
+    !isPlaceholderOrVarName(val, 'GOOGLE_CLIENT_ID') &&
+    !/\s/.test(val) &&
+    val.endsWith('.apps.googleusercontent.com') &&
+    val.length > '.apps.googleusercontent.com'.length + 3 &&
+    !val.toLowerCase().startsWith('seu-client-id');
+
+  return {
+    value: val,
+    status: isValid ? 'CONFIGURADA' : 'INVÁLIDA',
+  };
+}
+
+export function evaluateClientSecretStatus(rawVal?: string): {
+  value: string;
+  status: ConfigVarStatus;
+} {
+  const val = cleanEnvValue(rawVal);
+  if (!val) {
+    return { value: '', status: 'AUSENTE' };
+  }
+
+  const isValid =
+    !isPlaceholderOrVarName(val, 'GOOGLE_CLIENT_SECRET') &&
+    !/\s/.test(val) &&
+    val.length >= 12;
+
+  return {
+    value: val,
+    status: isValid ? 'CONFIGURADA' : 'INVÁLIDA',
+  };
+}
+
+export function evaluateAdminSubStatus(rawVal?: string): {
+  value: string | null;
+  status: ConfigVarStatus;
+} {
+  const val = cleanEnvValue(rawVal);
+  if (!val) {
+    return { value: null, status: 'AUSENTE' };
+  }
+
+  const isValid =
+    !isPlaceholderOrVarName(val, 'GOOGLE_ADMIN_SUB') &&
+    !/\s/.test(val) &&
+    val.length >= 5;
+
+  return {
+    value: isValid ? val : null,
+    status: isValid ? 'CONFIGURADA' : 'INVÁLIDA',
+  };
+}
+
 function validateSiteAndCallbackUrl(
   rawUrl: string,
   isProduction: boolean
 ): { siteUrl: string; callbackUrl: string; isValid: boolean } {
-  const cleaned = rawUrl.trim().replace(/\/+$/, '');
+  const cleaned = cleanEnvValue(rawUrl).replace(/\/+$/, '');
   try {
     const parsed = new URL(cleaned);
     const isHttpsOrLocal =
@@ -95,24 +188,28 @@ function validateSiteAndCallbackUrl(
 export function getAuthConfig(): AuthConfig {
   const isProduction = process.env.NODE_ENV === 'production';
 
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
-  const rawAdminEmail = (
-    process.env.GOOGLE_ADMIN_EMAIL?.trim() || OFFICIAL_ADMIN_EMAIL
-  ).toLowerCase();
+  const clientIdCheck = evaluateClientIdStatus(process.env.GOOGLE_CLIENT_ID);
+  const clientSecretCheck = evaluateClientSecretStatus(process.env.GOOGLE_CLIENT_SECRET);
+
+  const clientId = clientIdCheck.value;
+  const clientSecret = clientSecretCheck.value;
+  const rawAdminEmail = cleanEnvValue(process.env.GOOGLE_ADMIN_EMAIL).toLowerCase();
 
   // Impede que o e-mail de contato público seja utilizado como identidade administrativa
   const adminEmail =
-    rawAdminEmail === PUBLIC_CONTACT_ONLY_EMAIL ? OFFICIAL_ADMIN_EMAIL : rawAdminEmail;
+    !rawAdminEmail || rawAdminEmail === PUBLIC_CONTACT_ONLY_EMAIL
+      ? OFFICIAL_ADMIN_EMAIL
+      : rawAdminEmail;
 
-  const rawSub = process.env.GOOGLE_ADMIN_SUB?.trim() || '';
-  const isSubValidFormat = rawSub.length >= 5 && !/\s/.test(rawSub);
-  const adminSub = isSubValidFormat ? rawSub : null;
+  const isAdminEmailValid = !rawAdminEmail || rawAdminEmail === OFFICIAL_ADMIN_EMAIL;
+
+  const adminSubCheck = evaluateAdminSubStatus(process.env.GOOGLE_ADMIN_SUB);
+  const adminSub = adminSubCheck.value;
 
   // URL base canônica para redirecionamentos OAuth (Domínio oficial da Vercel por padrão)
   const rawSiteUrl =
-    process.env.NEXTAUTH_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    cleanEnvValue(process.env.NEXTAUTH_URL) ||
+    cleanEnvValue(process.env.NEXT_PUBLIC_SITE_URL) ||
     OFFICIAL_PRODUCTION_SITE_URL;
 
   const { siteUrl, callbackUrl, isValid: isCallbackValid } = validateSiteAndCallbackUrl(
@@ -121,7 +218,7 @@ export function getAuthConfig(): AuthConfig {
   );
 
   // Segredo de sessão com proteção de ambiente
-  let authSecret = process.env.AUTH_SECRET?.trim() || '';
+  let authSecret = cleanEnvValue(process.env.AUTH_SECRET);
 
   if (!authSecret) {
     if (isProduction) {
@@ -133,14 +230,14 @@ export function getAuthConfig(): AuthConfig {
   }
 
   const isOAuthConfigured = Boolean(
-    clientId &&
-      clientId.length >= 10 &&
-      clientSecret &&
-      clientSecret.length >= 10 &&
+    clientIdCheck.status === 'CONFIGURADA' &&
+      clientSecretCheck.status === 'CONFIGURADA' &&
+      isAdminEmailValid &&
       adminEmail === OFFICIAL_ADMIN_EMAIL
   );
-  const isAuthSecretValid = authSecret.length >= 32;
-  const isSubConfigured = Boolean(adminSub);
+  const isAuthSecretValid =
+    authSecret.length >= 32 && !isPlaceholderOrVarName(authSecret, 'AUTH_SECRET');
+  const isSubConfigured = adminSubCheck.status === 'CONFIGURADA';
 
   let diagnosticCode: AuthDiagnosticCode = 'READY';
   if (!isCallbackValid) {
@@ -183,68 +280,54 @@ export function getAuthConfig(): AuthConfig {
 export function getEnvironmentDiagnostics(): EnvironmentDiagnosticReport {
   const isProduction = process.env.NODE_ENV === 'production';
 
-  const rawClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
-  const clientIdStatus: ConfigVarStatus = !rawClientId
-    ? 'AUSENTE'
-    : rawClientId.length >= 10 &&
-        (!isProduction || rawClientId.endsWith('.apps.googleusercontent.com'))
-      ? 'CONFIGURADA'
-      : 'INVÁLIDA';
+  const clientIdStatus = evaluateClientIdStatus(process.env.GOOGLE_CLIENT_ID).status;
+  const clientSecretStatus = evaluateClientSecretStatus(process.env.GOOGLE_CLIENT_SECRET).status;
 
-  const rawClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || '';
-  const clientSecretStatus: ConfigVarStatus = !rawClientSecret
-    ? 'AUSENTE'
-    : rawClientSecret.length >= 10
-      ? 'CONFIGURADA'
-      : 'INVÁLIDA';
-
-  const rawAdminEmail = process.env.GOOGLE_ADMIN_EMAIL?.trim().toLowerCase() || '';
+  const rawAdminEmail = cleanEnvValue(process.env.GOOGLE_ADMIN_EMAIL).toLowerCase();
   const adminEmailStatus: ConfigVarStatus = !rawAdminEmail
     ? 'CONFIGURADA' // Utiliza o fallback canônico seguro reis.elias.ribeiro@gmail.com
     : rawAdminEmail === OFFICIAL_ADMIN_EMAIL
       ? 'CONFIGURADA'
       : 'INVÁLIDA';
 
-  const rawAdminSub = process.env.GOOGLE_ADMIN_SUB?.trim() || '';
-  const adminSubStatus: ConfigVarStatus = !rawAdminSub
-    ? 'AUSENTE'
-    : rawAdminSub.length >= 5 && !/\s/.test(rawAdminSub)
-      ? 'CONFIGURADA'
-      : 'INVÁLIDA';
+  const adminSubStatus = evaluateAdminSubStatus(process.env.GOOGLE_ADMIN_SUB).status;
 
-  const rawAuthSecret = process.env.AUTH_SECRET?.trim() || '';
+  const rawAuthSecret = cleanEnvValue(process.env.AUTH_SECRET);
   const authSecretStatus: ConfigVarStatus = !rawAuthSecret
     ? 'AUSENTE'
-    : rawAuthSecret.length >= 32
+    : rawAuthSecret.length >= 32 && !isPlaceholderOrVarName(rawAuthSecret, 'AUTH_SECRET')
       ? 'CONFIGURADA'
       : 'INVÁLIDA';
 
   const rawNextAuthUrl =
-    process.env.NEXTAUTH_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    cleanEnvValue(process.env.NEXTAUTH_URL) ||
+    cleanEnvValue(process.env.NEXT_PUBLIC_SITE_URL) ||
     OFFICIAL_PRODUCTION_SITE_URL;
   const urlCheck = validateSiteAndCallbackUrl(rawNextAuthUrl, isProduction);
   const nextAuthUrlStatus: ConfigVarStatus = urlCheck.isValid ? 'CONFIGURADA' : 'INVÁLIDA';
 
   const rawPublicSiteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() || OFFICIAL_PRODUCTION_SITE_URL;
+    cleanEnvValue(process.env.NEXT_PUBLIC_SITE_URL) || OFFICIAL_PRODUCTION_SITE_URL;
   const publicSiteUrlCheck = validateSiteAndCallbackUrl(rawPublicSiteUrl, isProduction);
   const nextPublicSiteUrlStatus: ConfigVarStatus = publicSiteUrlCheck.isValid
     ? 'CONFIGURADA'
     : 'INVÁLIDA';
 
-  const rawDatabaseUrl = process.env.DATABASE_URL?.trim() || '';
+  const rawDatabaseUrl = cleanEnvValue(process.env.DATABASE_URL);
   const databaseUrlStatus: ConfigVarStatus = !rawDatabaseUrl
     ? 'AUSENTE'
     : (rawDatabaseUrl.startsWith('postgres://') || rawDatabaseUrl.startsWith('postgresql://')) &&
-        !rawDatabaseUrl.includes('usuario:senha@host')
+        !rawDatabaseUrl.includes('usuario:senha@host') &&
+        !isPlaceholderOrVarName(rawDatabaseUrl, 'DATABASE_URL')
       ? 'CONFIGURADA'
       : 'INVÁLIDA';
 
-  const rawBlobToken = process.env.BLOB_READ_WRITE_TOKEN?.trim() || '';
+  const rawBlobToken = cleanEnvValue(process.env.BLOB_READ_WRITE_TOKEN);
   const blobTokenStatus: ConfigVarStatus = !rawBlobToken
     ? 'AUSENTE'
-    : rawBlobToken.length >= 15
+    : rawBlobToken.length >= 15 &&
+        !/\s/.test(rawBlobToken) &&
+        !isPlaceholderOrVarName(rawBlobToken, 'BLOB_READ_WRITE_TOKEN')
       ? 'CONFIGURADA'
       : 'INVÁLIDA';
 

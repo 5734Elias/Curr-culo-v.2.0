@@ -317,6 +317,7 @@ const savedEnv = {
   GOOGLE_ADMIN_SUB: process.env.GOOGLE_ADMIN_SUB,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   DATABASE_URL: process.env.DATABASE_URL,
+  BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
 };
 
 process.env.GOOGLE_CLIENT_ID = '1234567890-eliascurriculo.apps.googleusercontent.com';
@@ -343,6 +344,64 @@ assert(
 );
 assert(!locReady.includes('ConfigurationError'));
 
+// 5.1d Consistência estrita: GOOGLE_CLIENT_ID inválido (ex: nome da variável "GOOGLE_CLIENT_ID" ou "Curriculo_Elias")
+// JAMAIS pode retornar authDiagnostic: 'READY'
+for (const invalidId of ['GOOGLE_CLIENT_ID', 'Curriculo_Elias', '1234567890-sem-sufixo']) {
+  process.env.GOOGLE_CLIENT_ID = invalidId;
+  const diagInvalid = getEnvironmentDiagnostics();
+  const cfgInvalid = getAuthConfig();
+  assert.strictEqual(
+    diagInvalid.variables.GOOGLE_CLIENT_ID,
+    'INVÁLIDA',
+    `Valor inválido "${invalidId}" deve ser classificado como INVÁLIDA.`
+  );
+  assert.strictEqual(
+    diagInvalid.subsystems.oauthConfigured,
+    false,
+    `oauthConfigured deve ser false quando GOOGLE_CLIENT_ID="${invalidId}".`
+  );
+  assert.strictEqual(
+    cfgInvalid.isOAuthConfigured,
+    false,
+    `isOAuthConfigured deve ser false quando GOOGLE_CLIENT_ID="${invalidId}".`
+  );
+  assert.strictEqual(
+    diagInvalid.authDiagnostic,
+    'OAuthNotConfigured',
+    `authDiagnostic NUNCA pode ser READY quando GOOGLE_CLIENT_ID é INVÁLIDA ("${invalidId}").`
+  );
+
+  const reqInvalidCid = new NextRequest('http://localhost:3000/api/auth/google');
+  const resInvalidCid = await getGoogleAuth(reqInvalidCid);
+  assert.strictEqual(resInvalidCid.status, 307);
+  assert(
+    resInvalidCid.headers
+      .get('location')
+      ?.includes('/admin/login?error=ConfigurationError&reason=OAuthNotConfigured'),
+    `Com GOOGLE_CLIENT_ID="${invalidId}", /api/auth/google deve bloquear e redirecionar com OAuthNotConfigured.`
+  );
+}
+
+// 5.1e Sanitização de aspas e espaços acidentais em GOOGLE_CLIENT_ID
+process.env.GOOGLE_CLIENT_ID = '  "1234567890-eliascurriculo.apps.googleusercontent.com"  ';
+const diagQuoted = getEnvironmentDiagnostics();
+const cfgQuoted = getAuthConfig();
+assert.strictEqual(diagQuoted.variables.GOOGLE_CLIENT_ID, 'CONFIGURADA');
+assert.strictEqual(cfgQuoted.clientId, '1234567890-eliascurriculo.apps.googleusercontent.com');
+assert.strictEqual(diagQuoted.authDiagnostic, 'READY');
+
+// 5.1f Detecção de auto-atribuição do próprio nome da variável em GOOGLE_CLIENT_SECRET, GOOGLE_ADMIN_SUB e BLOB_READ_WRITE_TOKEN
+process.env.GOOGLE_CLIENT_SECRET = 'GOOGLE_CLIENT_SECRET';
+process.env.GOOGLE_ADMIN_SUB = 'GOOGLE_ADMIN_SUB';
+process.env.BLOB_READ_WRITE_TOKEN = 'BLOB_READ_WRITE_TOKEN';
+const diagSelfAssigned = getEnvironmentDiagnostics();
+assert.strictEqual(diagSelfAssigned.variables.GOOGLE_CLIENT_SECRET, 'INVÁLIDA');
+assert.strictEqual(diagSelfAssigned.variables.GOOGLE_ADMIN_SUB, 'INVÁLIDA');
+assert.strictEqual(diagSelfAssigned.variables.BLOB_READ_WRITE_TOKEN, 'INVÁLIDA');
+assert.strictEqual(diagSelfAssigned.authDiagnostic, 'OAuthNotConfigured');
+process.env.GOOGLE_CLIENT_SECRET = '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2345';
+process.env.GOOGLE_ADMIN_SUB = '109876543210987654321';
+
 // Teste de InvalidCallback quando NEXTAUTH_URL é malformada
 process.env.NEXTAUTH_URL = 'not-a-valid-url';
 const reqInvalidCb = new NextRequest('http://localhost:3000/api/auth/google');
@@ -358,7 +417,7 @@ for (const [k, v] of Object.entries(savedEnv)) {
   if (v === undefined) delete process.env[k];
   else process.env[k] = v;
 }
-console.log('  -> Diagnósticos separados (OAuth, SUB, Callback, DB, Storage) e independência do banco validados: OK');
+console.log('  -> Diagnósticos separados, validação estrita de .apps.googleusercontent.com e bloqueio de placeholders validados: OK');
 
 // 5.2 Callback /api/auth/callback/google com cancelamento do Google
 const reqCancelled = new NextRequest('http://localhost:3000/api/auth/callback/google?error=access_denied');
