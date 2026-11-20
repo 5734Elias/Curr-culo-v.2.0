@@ -160,7 +160,7 @@ export default async function HomePage() {
                 <div className="relative aspect-[3/4] w-full flex-grow min-h-[340px] overflow-hidden">
                   <Image
                     src="/images/elias-arquitetura-cpd.webp"
-                    alt="Elias Ribeiro dos Reis sentado em Centro de Processamento de Dados (CPD) com racks de servidores ao fundo"
+                    alt="Elias Ribeiro dos Reis em pé no CPD Enterprise Data Center com racks de servidores ao fundo"
                     fill
                     sizes="(max-width: 1024px) 100vw, 440px"
                     className="object-cover object-top"
