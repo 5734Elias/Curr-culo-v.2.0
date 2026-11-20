@@ -159,7 +159,7 @@ export default async function HomePage() {
               <figure className="h-full flex flex-col rounded-[0.375rem] overflow-hidden bg-[#151d1e] border border-[#3a494b] surface-tier-2">
                 <div className="relative aspect-[3/4] w-full flex-grow min-h-[340px] overflow-hidden">
                   <Image
-                    src="/images/elias-arquitetura-cpd.webp"
+                    src="/images/elias-cpd-enterprise.webp"
                     alt="Elias Ribeiro dos Reis em pé no CPD Enterprise Data Center com racks de servidores ao fundo"
                     fill
                     sizes="(max-width: 1024px) 100vw, 440px"
