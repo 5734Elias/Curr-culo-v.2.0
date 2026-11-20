@@ -444,11 +444,11 @@ console.log('  -> 3 caminhos de revalidação sob demanda mapeados (/projetos, /
 // ----------------------------------------------------------------------------
 // [7/7] PRESERVAÇÃO INTEGRAL DOS DADOS DE CERTIFICADOS E PROJETOS
 // ----------------------------------------------------------------------------
-console.log('\n[7/7] Verificando integridade matemática dos 65 cursos, 2.164,5h e 4 projetos...');
+console.log('\n[7/7] Verificando integridade matemática dos 76 cursos, 3.090,5h e 4 projetos...');
 const allCerts = await getAllCertificatesAdmin();
 const totalHours = allCerts.certificates.reduce((sum, c) => sum + (c.workloadHours ?? 0), 0);
-assert.strictEqual(allCerts.certificates.length, 65, 'Deve manter exatamente 65 cursos.');
-assert.strictEqual(totalHours, 2164.5, 'Carga horária deve ser exatamente 2.164,5h.');
+assert.strictEqual(allCerts.certificates.length, 76, 'Deve manter exatamente 76 cursos.');
+assert.strictEqual(totalHours, 3090.5, 'Carga horária deve ser exatamente 3.090,5h.');
 assert.strictEqual(allProjects.total, 4, 'Projetos homologados devem ser exatamente 4.');
 console.log(`  -> Preservação de dados confirmada: ${allCerts.certificates.length} cursos, ${totalHours}h, ${allProjects.total} projetos: OK`);
 

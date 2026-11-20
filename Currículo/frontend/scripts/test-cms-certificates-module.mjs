@@ -97,13 +97,13 @@ console.log('\n[2/6] Testando consultas administrativas com filtros no cmsDataSe
 
 // 2.1 Consulta Geral (Todos)
 const allResult = await getAllCertificatesAdmin();
-assert.strictEqual(allResult.total, 65, 'Total inicial de certificados deve ser exatamente 65.');
-assert.strictEqual(allResult.certificates.length, 65);
+assert.strictEqual(allResult.total, 76, 'Total inicial de certificados deve ser exatamente 76.');
+assert.strictEqual(allResult.certificates.length, 76);
 console.log(`  -> Listagem geral retornou todos os ${allResult.total} certificados: OK`);
 
 // 2.2 Filtro por SENAI
 const senaiResult = await getAllCertificatesAdmin({ group: 'senai' });
-assert.strictEqual(senaiResult.total, 21, 'SENAI deve possuir 21 certificados.');
+assert.strictEqual(senaiResult.total, 32, 'SENAI deve possuir 32 certificados.');
 console.log(`  -> Filtro por grupo 'senai' retornou ${senaiResult.total} cursos: OK`);
 
 // 2.3 Filtro por Ka Solution
@@ -155,7 +155,7 @@ const reqAuthList = new NextRequest('http://localhost:3000/api/admin/certificate
 const resAuthList = await getCertificatesApi(reqAuthList);
 assert.strictEqual(resAuthList.status, 200);
 const bodyAuthList = await resAuthList.json();
-assert.strictEqual(bodyAuthList.total, 21);
+assert.strictEqual(bodyAuthList.total, 32);
 console.log('  -> Consulta autenticada na API de certificados (HTTP 200): OK');
 
 // 3.3 Criação Não Autenticada (HTTP 401)
@@ -256,11 +256,11 @@ console.log('  -> 4 caminhos de revalidação sob demanda mapeados e seguros: OK
 // ----------------------------------------------------------------------------
 // [6/6] PRESERVAÇÃO INTEGRAL DOS DADOS AUDITADOS
 // ----------------------------------------------------------------------------
-console.log('\n[6/6] Verificando integridade matemática dos 65 cursos e 2.164,5h...');
+console.log('\n[6/6] Verificando integridade matemática dos 76 cursos e 3.090,5h...');
 const finalAll = await getAllCertificatesAdmin();
 const totalHours = finalAll.certificates.reduce((sum, c) => sum + (c.workloadHours ?? 0), 0);
-assert.strictEqual(finalAll.certificates.length, 65, 'Contagem deve permanecer rigorosamente 65.');
-assert.strictEqual(totalHours, 2164.5, 'Carga horária deve totalizar rigorosamente 2.164,5h.');
+assert.strictEqual(finalAll.certificates.length, 76, 'Contagem deve permanecer rigorosamente 76.');
+assert.strictEqual(totalHours, 3090.5, 'Carga horária deve totalizar rigorosamente 3.090,5h.');
 console.log(`  -> Preservação de dados confirmada: ${finalAll.certificates.length} cursos, ${totalHours}h: OK`);
 
 console.log('\n====================================================================');

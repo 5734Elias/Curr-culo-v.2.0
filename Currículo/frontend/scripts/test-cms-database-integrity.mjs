@@ -107,10 +107,10 @@ console.log('\n[4/6] Testando resiliência da camada de dados sem conexão ao Po
 
 // 4.1 Certificados e Cursos
 const certificates = await getPublishedCertificates();
-assert.strictEqual(certificates.length, 65, 'Fallback deve retornar exatamente 65 certificados.');
+assert.strictEqual(certificates.length, 76, 'Fallback deve retornar exatamente 76 certificados.');
 
 const totalHours = certificates.reduce((acc, c) => acc + (c.workloadHours ?? 0), 0);
-assert.strictEqual(totalHours, 2164.5, 'Carga horária total no fallback deve somar exatamente 2.164,5h.');
+assert.strictEqual(totalHours, 3090.5, 'Carga horária total no fallback deve somar exatamente 3.090,5h.');
 console.log(`  -> Certificados no fallback: ${certificates.length} itens, totalizando ${totalHours}h: OK`);
 
 // 4.2 Projetos
@@ -127,10 +127,10 @@ console.log(`  -> Habilidades no fallback: ${skills.length} itens extraídos: OK
 
 // 4.4 Métricas do Painel CMS
 const metrics = await getCmsDashboardMetrics();
-assert.strictEqual(metrics.totalCertificates, 65, 'Métrica totalCertificates deve ser 65.');
-assert.strictEqual(metrics.totalCourses, 65, 'Métrica totalCourses deve ser 65.');
-assert.strictEqual(metrics.totalWorkloadHours, 2164.5, 'Métrica totalWorkloadHours deve ser 2164.5.');
-assert.strictEqual(metrics.publishedCertificates, 65, 'Métrica publishedCertificates deve ser 65.');
+assert.strictEqual(metrics.totalCertificates, 76, 'Métrica totalCertificates deve ser 76.');
+assert.strictEqual(metrics.totalCourses, 76, 'Métrica totalCourses deve ser 76.');
+assert.strictEqual(metrics.totalWorkloadHours, 3090.5, 'Métrica totalWorkloadHours deve ser 3090.5.');
+assert.strictEqual(metrics.publishedCertificates, 76, 'Métrica publishedCertificates deve ser 76.');
 assert.strictEqual(metrics.draftCertificates, 0, 'Métrica draftCertificates deve ser 0.');
 assert.strictEqual(metrics.totalProjects, 4, 'Métrica totalProjects deve ser 4.');
 assert.strictEqual(metrics.databaseConnected, false, 'Métrica databaseConnected deve ser false quando sem DB.');
@@ -144,8 +144,8 @@ assert(typeof seedCmsDatabase === 'function', 'seedCmsDatabase deve ser uma fun�
 
 const seedFileContent = fs.readFileSync(path.join(rootDir, 'scripts', 'seed-cms-data.ts'), 'utf-8');
 assert(seedFileContent.includes('upsert'), 'Seed deve utilizar upsert para garantir idempotência.');
-assert(seedFileContent.includes('totalCertificates !== 65'), 'Seed deve auditar contagem exata de 65 cursos.');
-assert(seedFileContent.includes('totalHours !== 2164.5'), 'Seed deve auditar carga horária exata de 2.164,5h.');
+assert(seedFileContent.includes('totalCertificates !== 76'), 'Seed deve auditar contagem exata de 76 cursos.');
+assert(seedFileContent.includes('totalHours !== 3090.5'), 'Seed deve auditar carga horária exata de 3.090,5h.');
 console.log('  -> Script de seed idempotente com checagens estritas de integridade: OK');
 
 // ----------------------------------------------------------------------------
