@@ -302,61 +302,53 @@ export default async function HomePage() {
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <SectionHeader
             badge="Colaboração & Engenharia em Equipe"
-            title="Atuação Integrada em Times de TI, Dados e IA"
-            description="Colaboração técnica entre infraestrutura crítica, desenvolvimento de software, ciência de dados e inteligência artificial aplicada."
+            title="Atuação Integrada em Infraestrutura, Dados e IA"
+            description="Colaboração técnica conectando infraestrutura crítica de TI, engenharia de software, ciência de dados e inteligência artificial aplicada."
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card hoverEffect={false} className="p-0 overflow-hidden flex flex-col">
-              <div className="relative aspect-[3/2] w-full overflow-hidden">
-                <Image
-                  src="/images/equipe-ti-cpd.webp"
-                  alt="Elias Ribeiro dos Reis e colegas de equipe de TI em ambiente de Centro de Processamento de Dados (CPD)"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 600px"
-                  className="object-cover object-top"
-                />
-              </div>
-              <div className="p-6 space-y-2 flex-grow">
-                <div className="flex items-center gap-2 text-xs font-mono text-[#00f2ff] uppercase tracking-wider">
-                  <Users className="w-4 h-4" aria-hidden="true" />
-                  <span>Infraestrutura &amp; Operações de CPD</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#dce4e4]">
-                  Continuidade Operacional e Suporte Especializado
-                </h3>
-                <p className="text-sm sm:text-base text-[#b9cacb] leading-relaxed">
-                  Integração com times de infraestrutura, redes e suporte N2/N3 para garantir
-                  disponibilidade, segurança de perímetro e governança em ambientes corporativos.
-                </p>
-              </div>
-            </Card>
-
-            <Card hoverEffect={false} className="p-0 overflow-hidden flex flex-col">
-              <div className="relative aspect-[4/3] w-full overflow-hidden">
+          <Card hoverEffect={false} className="p-0 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
+              <div className="lg:col-span-7 relative aspect-[4/3] lg:aspect-auto lg:min-h-[380px] w-full overflow-hidden">
                 <Image
                   src="/images/equipe-data-science-ia.webp"
-                  alt="Elias Ribeiro dos Reis com equipe de engenharia de dados e inteligência artificial"
+                  alt="Elias Ribeiro dos Reis com equipe multidisciplinar de TI, Infraestrutura, Data Science e IA"
                   fill
-                  sizes="(max-width: 768px) 100vw, 600px"
+                  sizes="(max-width: 1024px) 100vw, 720px"
                   className="object-cover object-top"
                 />
               </div>
-              <div className="p-6 space-y-2 flex-grow">
-                <div className="flex items-center gap-2 text-xs font-mono text-[#c0c1ff] uppercase tracking-wider">
-                  <Cpu className="w-4 h-4" aria-hidden="true" />
-                  <span>Data Science, Engenharia &amp; IA</span>
+
+              <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-center space-y-6 bg-[#151d1e]/95 border-t lg:border-t-0 lg:border-l border-[#3a494b]/70">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-mono text-[#00f2ff] uppercase tracking-wider">
+                    <Users className="w-4 h-4" aria-hidden="true" />
+                    <span>Infraestrutura &amp; Operações de TI</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#dce4e4]">
+                    Continuidade Operacional &amp; Suporte Especializado
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#b9cacb] leading-relaxed">
+                    Integração com times de infraestrutura, redes e suporte N2/N3 para assegurar
+                    disponibilidade, segurança de perímetro e governança em ambientes corporativos.
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold text-[#dce4e4]">
-                  Pipelines de Dados e Agentes Inteligentes
-                </h3>
-                <p className="text-sm sm:text-base text-[#b9cacb] leading-relaxed">
-                  Trabalho conjunto em modelagem de dados, automação analítica em Python e
-                  construção de fluxos com modelos generativos e validação contínua.
-                </p>
+
+                <div className="pt-5 border-t border-[#3a494b]/60 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-mono text-[#c0c1ff] uppercase tracking-wider">
+                    <Cpu className="w-4 h-4" aria-hidden="true" />
+                    <span>Data Science, Engenharia &amp; IA</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#dce4e4]">
+                    Pipelines de Dados e Agentes Inteligentes
+                  </h3>
+                  <p className="text-sm sm:text-base text-[#b9cacb] leading-relaxed">
+                    Trabalho conjunto em modelagem de dados, automação analítica em Python e
+                    construção de fluxos com modelos generativos e validação contínua.
+                  </p>
+                </div>
               </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
         </section>
 
         {/* SEÇÃO FORMAÇÃO & CERTIFICADOS RECENTES */}
