@@ -253,7 +253,7 @@ console.log('  -> Varredura estática concluída: ZERO segredos, tokens ou senha
 console.log('\n[5/6] Validando integridade das rotas públicas e ISR...');
 
 const publishedCerts = await getPublishedCertificates();
-assert.strictEqual(publishedCerts.length, 65, 'Todos os 65 cursos devem ser retornados.');
+assert.strictEqual(publishedCerts.length, 76, 'Todos os 76 cursos devem ser retornados.');
 
 const publishedProjects = await getPublishedProjects();
 assert.strictEqual(publishedProjects.length, 4, 'Todos os 4 projetos devem ser retornados.');
@@ -266,7 +266,7 @@ console.log('  -> Camada resiliente do CMS ativa com resposta imediata e sem blo
 console.log('\n[6/6] Verificando integridade matemática e garantias finais...');
 
 const totalHoursVerified = publishedCerts.reduce((sum, c) => sum + (c.workloadHours ?? 0), 0);
-assert.strictEqual(totalHoursVerified, 2164.5, 'Carga horária total deve permanecer estritamente 2.164,5h.');
+assert.strictEqual(totalHoursVerified, 3090.5, 'Carga horária total deve permanecer estritamente 3.090,5h.');
 assert.strictEqual(new Set(publishedCerts.map((c) => c.institution)).size, 13, 'Devem existir exatamente 13 instituições únicas catalogadas.');
 
 // 6.1 Teste do Endpoint de Sincronização e Backup (/api/admin/database/sync) e Proteção de Rota de Mídia
@@ -288,8 +288,8 @@ const authBackupRes = await getDbBackupRoute(authBackupReq);
 assert.strictEqual(authBackupRes.status, 200, 'Administrador autorizado deve conseguir exportar backup do CMS.');
 const backupPayload = await authBackupRes.json();
 assert.strictEqual(backupPayload.success, true);
-assert.strictEqual(backupPayload.backup.counts.certificates, 65);
-assert.strictEqual(backupPayload.backup.counts.totalWorkloadHours, 2164.5);
+assert.strictEqual(backupPayload.backup.counts.certificates, 76);
+assert.strictEqual(backupPayload.backup.counts.totalWorkloadHours, 3090.5);
 assert.strictEqual(backupPayload.backup.sha256.length, 64);
 
 const authSyncPostReq = new NextRequest('http://localhost:3000/api/admin/database/sync', {
@@ -307,7 +307,7 @@ const traversalMediaRes = await getMediaRoute(traversalMediaReq, {
 });
 assert.strictEqual(traversalMediaRes.status, 400, 'Rota de mídia deve rejeitar chaves fora do padrão UUID.');
 
-console.log(`  -> 65 cursos, 2.164,5 horas, backup SHA-256 e proteção de rotas validados com sucesso: OK`);
+console.log(`  -> 76 cursos, 3.090,5 horas, backup SHA-256 e proteção de rotas validados com sucesso: OK`);
 
 console.log('\n====================================================================');
 console.log('--- TODOS OS PORTÕES DE CIBERSEGURANÇA E QA FORAM APROVADOS! ---');

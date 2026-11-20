@@ -18,17 +18,17 @@ console.log('\n[1/5] Testando camada de acesso a dados integrada às páginas p�
 // 1.1 Certificados Públicos
 const publicCertificates = await getPublishedCertificates();
 assert(Array.isArray(publicCertificates), 'Certificados públicos deve ser uma lista.');
-assert.strictEqual(publicCertificates.length, 65, 'Deve conter exatamente 65 certificados.');
+assert.strictEqual(publicCertificates.length, 76, 'Deve conter exatamente 76 certificados.');
 
 const totalHours = publicCertificates.reduce((sum, c) => sum + (c.workloadHours ?? 0), 0);
-assert.strictEqual(totalHours, 2164.5, 'Carga horária total deve ser rigorosamente 2.164,5h.');
+assert.strictEqual(totalHours, 3090.5, 'Carga horária total deve ser rigorosamente 3.090,5h.');
 
 // Validação de Schema para cada certificado
 for (const cert of publicCertificates) {
   const result = CourseSchema.safeParse(cert);
   assert(result.success, `Certificado ${cert.id} deve cumprir rigorosamente CourseSchema.`);
 }
-console.log(`  -> 65 certificados públicos validados com 2.164,5h sob CourseSchema: OK`);
+console.log(`  -> 76 certificados públicos validados com 3.090,5h sob CourseSchema: OK`);
 
 // 1.2 Projetos Públicos
 const publicProjects = await getPublishedProjects();
@@ -95,7 +95,7 @@ console.log('\n[4/5] Testando resiliência e comportamento à prova de falhas...
 
 // Simula consulta sem banco de dados configurado
 const fallbackCerts = await getPublishedCertificates();
-assert.strictEqual(fallbackCerts.length, 65, 'Mesmo sem DB, deve retornar os 65 cursos.');
+assert.strictEqual(fallbackCerts.length, 76, 'Mesmo sem DB, deve retornar os 76 cursos.');
 
 const fallbackProjects = await getPublishedProjects();
 assert.strictEqual(fallbackProjects.length, 4, 'Mesmo sem DB, deve retornar os 4 projetos.');
@@ -105,10 +105,10 @@ console.log('  -> Comportamento fail-safe validado: o portfólio público nunca 
 // [5/5] PRESERVAÇÃO INTEGRAL DOS DADOS AUDITADOS
 // ----------------------------------------------------------------------------
 console.log('\n[5/5] Verificação de integridade matemática absoluta...');
-assert.strictEqual(publicCertificates.length, 65, 'Contagem de cursos deve ser 65.');
-assert.strictEqual(totalHours, 2164.5, 'Carga horária deve ser 2.164,5h.');
+assert.strictEqual(publicCertificates.length, 76, 'Contagem de cursos deve ser 76.');
+assert.strictEqual(totalHours, 3090.5, 'Carga horária deve ser 3.090,5h.');
 assert.strictEqual(publicProjects.length, 4, 'Contagem de projetos deve ser 4.');
-console.log(`  -> Integridade matemática preservada: 65 cursos (${totalHours}h), 4 projetos: OK`);
+console.log(`  -> Integridade matemática preservada: 76 cursos (${totalHours}h), 4 projetos: OK`);
 
 console.log('\n====================================================================');
 console.log('--- TODOS OS TESTES DA FASE 7 PASSARAM COM SUCESSO ABSOLUTO! ---');

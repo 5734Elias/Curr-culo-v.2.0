@@ -28,7 +28,7 @@ export interface DatabaseSyncReport {
 
 /**
  * Garante que o banco PostgreSQL receba automaticamente a importação idempotente
- * dos 65 cursos (2.164,5 horas), habilidades e 4 projetos na primeira conexão ou sob demanda.
+ * dos 76 cursos (3.090,5 horas), habilidades e 4 projetos na primeira conexão ou sob demanda.
  */
 export async function ensureDatabaseSeeded(force: boolean = false): Promise<DatabaseSyncReport> {
   const isDbReady = await isDatabaseAvailable();
@@ -43,7 +43,7 @@ export async function ensureDatabaseSeeded(force: boolean = false): Promise<Data
       totalWorkloadHours: staticHours,
       skillsCount: staticSkills,
       projectsCount: PROJECTS.length,
-      integrityVerified: staticHours === 2164.5 && COURSES.length === 65,
+      integrityVerified: staticHours === 3090.5 && COURSES.length === 76,
       syncedAt: new Date().toISOString(),
     };
   }
@@ -51,8 +51,8 @@ export async function ensureDatabaseSeeded(force: boolean = false): Promise<Data
   try {
     const currentCount = await prisma.certificate.count();
 
-    if (currentCount === 0 || force || !hasAutoSeededInProcess) {
-      if (currentCount === 0 || force) {
+    if (currentCount < COURSES.length || force || !hasAutoSeededInProcess) {
+      if (currentCount < COURSES.length || force) {
         // 1. Upsert das habilidades únicas
         const skillCategoryMap = new Map<string, string>();
         for (const course of COURSES) {
@@ -80,7 +80,7 @@ export async function ensureDatabaseSeeded(force: boolean = false): Promise<Data
         const allSkills = await prisma.skill.findMany({ select: { id: true, name: true } });
         const skillIdMap = new Map(allSkills.map((s) => [s.name, s.id]));
 
-        // 2. Upsert idempotente dos 65 cursos preservando as 2.164,5 horas
+        // 2. Upsert idempotente dos 76 cursos preservando as 3.090,5 horas
         for (let idx = 0; idx < COURSES.length; idx++) {
           const course = COURSES[idx];
           await prisma.certificate.upsert({
@@ -201,7 +201,7 @@ export async function ensureDatabaseSeeded(force: boolean = false): Promise<Data
       totalWorkloadHours,
       skillsCount,
       projectsCount,
-      integrityVerified: certificatesCount >= 65 && totalWorkloadHours >= 2164.5,
+      integrityVerified: certificatesCount >= 76 && totalWorkloadHours >= 3090.5,
       syncedAt: new Date().toISOString(),
     };
   } catch (err) {

@@ -92,43 +92,43 @@ export function FormacaoClientView({ initialCourses }: Props) {
 
         {/* RESUMO VERIFICÁVEL EM CARDS COMPACTOS */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="p-5 rounded-[0.25rem] bg-[#192122] border border-[#00f2ff]/30 space-y-1">
+          <div className="p-5 rounded-[0.375rem] bg-[#12191b] border border-[#3a494b]/45 space-y-1">
             <div className="flex items-center justify-between text-[#00f2ff]">
-              <span className="text-xs font-mono uppercase tracking-wider">Cursos Deduplicados</span>
-              <BookOpen className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wider">Cursos e Certificados</span>
+              <BookOpen className="w-4 h-4" aria-hidden="true" />
             </div>
-            <p className="text-3xl font-extrabold text-[#dce4e4] font-mono">{courses.length}</p>
-            <p className="text-[11px] text-[#b9cacb]">Certificados únicos conferidos</p>
+            <p className="text-3xl font-bold text-[#dce4e4]">{courses.length}</p>
+            <p className="text-xs text-[#b9cacb]">Certificados únicos conferidos</p>
           </div>
 
-          <div className="p-5 rounded-[0.25rem] bg-[#192122] border border-[#c0c1ff]/30 space-y-1">
-            <div className="flex items-center justify-between text-[#c0c1ff]">
-              <span className="text-xs font-mono uppercase tracking-wider">Horas Comprovadas</span>
-              <Clock className="w-4 h-4" />
+          <div className="p-5 rounded-[0.375rem] bg-[#12191b] border border-[#3a494b]/45 space-y-1">
+            <div className="flex items-center justify-between text-[#00f2ff]">
+              <span className="text-xs font-medium uppercase tracking-wider">Horas Comprovadas</span>
+              <Clock className="w-4 h-4" aria-hidden="true" />
             </div>
-            <p className="text-3xl font-extrabold text-[#dce4e4] font-mono">{totalVerifiedHours.toLocaleString('pt-BR')}h</p>
-            <p className="text-[11px] text-[#b9cacb]">Em certificados com carga informada</p>
+            <p className="text-3xl font-bold text-[#dce4e4]">{totalVerifiedHours.toLocaleString('pt-BR')}h</p>
+            <p className="text-xs text-[#b9cacb]">Em certificados com carga informada</p>
           </div>
 
-          <div className="p-5 rounded-[0.25rem] bg-[#192122] border border-[#74f5ff]/30 space-y-1">
-            <div className="flex items-center justify-between text-[#74f5ff]">
-              <span className="text-xs font-mono uppercase tracking-wider">Instituições</span>
-              <Building2 className="w-4 h-4" />
+          <div className="p-5 rounded-[0.375rem] bg-[#12191b] border border-[#3a494b]/45 space-y-1">
+            <div className="flex items-center justify-between text-[#00f2ff]">
+              <span className="text-xs font-medium uppercase tracking-wider">Instituições</span>
+              <Building2 className="w-4 h-4" aria-hidden="true" />
             </div>
-            <p className="text-3xl font-extrabold text-[#dce4e4] font-mono">{totalUniqueInstitutions}</p>
-            <p className="text-[11px] text-[#b9cacb]">SENAI, Ka Solution, Bradesco e outras</p>
+            <p className="text-3xl font-bold text-[#dce4e4]">{totalUniqueInstitutions}</p>
+            <p className="text-xs text-[#b9cacb]">SENAI, Ka Solution, Bradesco e outras</p>
           </div>
         </section>
 
         {/* FORMAÇÃO ACADÊMICA E TÉCNICA PRINCIPAL */}
         <section className="space-y-6">
-          <h3 className="text-lg font-bold text-[#dce4e4] border-b border-[#3a494b] pb-3 flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-[#00f2ff]" />
-            <span>Formação Acadêmica & Técnica</span>
+          <h3 className="text-lg font-bold text-[#dce4e4] border-b border-[#3a494b]/60 pb-3 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-[#00f2ff]" aria-hidden="true" />
+            <span>Formação Acadêmica &amp; Técnica</span>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card surfaceTier="interactive" activeGlow className="border-[#00f2ff]">
+            <Card surfaceTier="featured" className="border-[#3a494b]/60">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <Badge variant="cyber">Diploma Técnico SENAI</Badge>

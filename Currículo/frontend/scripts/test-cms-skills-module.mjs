@@ -270,11 +270,11 @@ console.log('  -> Caminhos de revalidação sob demanda mapeados (/competencias,
 // ----------------------------------------------------------------------------
 // [6/6] PRESERVAÇÃO INTEGRAL DOS DADOS DE CERTIFICADOS
 // ----------------------------------------------------------------------------
-console.log('\n[6/6] Verificando integridade matemática dos 65 cursos e 2.164,5h...');
+console.log('\n[6/6] Verificando integridade matemática dos 76 cursos e 3.090,5h...');
 const allCerts = await getAllCertificatesAdmin();
 const totalHours = allCerts.certificates.reduce((sum, c) => sum + (c.workloadHours ?? 0), 0);
-assert.strictEqual(allCerts.certificates.length, 65, 'Deve manter exatamente 65 cursos.');
-assert.strictEqual(totalHours, 2164.5, 'Carga horária deve ser exatamente 2.164,5h.');
+assert.strictEqual(allCerts.certificates.length, 76, 'Deve manter exatamente 76 cursos.');
+assert.strictEqual(totalHours, 3090.5, 'Carga horária deve ser exatamente 3.090,5h.');
 console.log(`  -> Preservação de dados confirmada: ${allCerts.certificates.length} cursos, ${totalHours}h: OK`);
 
 console.log('\n====================================================================');

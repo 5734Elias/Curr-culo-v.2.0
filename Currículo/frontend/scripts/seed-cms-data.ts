@@ -19,7 +19,7 @@ export interface SeedResult {
  *
  * 1. Popula as tabelas Certificate, Skill, CertificateSkill, Project e Administrator.
  * 2. Garante que execuções sucessivas não dupliquem registros (upsert determinístico).
- * 3. Valida com rigor inegociável a preservação dos 65 cursos e 2.164,5 horas.
+ * 3. Valida com rigor inegociável a preservação dos 76 cursos e 3.090,5 horas.
  */
 export async function seedCmsDatabase(client: PrismaClient = prisma): Promise<SeedResult> {
   const errors: string[] = [];
@@ -58,7 +58,7 @@ export async function seedCmsDatabase(client: PrismaClient = prisma): Promise<Se
   const skillIdMap = new Map(allDbSkills.map((s) => [s.name, s.id]));
 
   // 2. Upsert Idempotente dos 65 Certificados
-  console.log('[2/5] Migrando os 65 cursos e certificados com IDs canônicos...');
+  console.log('[2/5] Migrando os 76 cursos e certificados com IDs canônicos...');
   let certIndex = 0;
   for (const course of COURSES) {
     const certRecord = await client.certificate.upsert({
@@ -203,14 +203,14 @@ export async function seedCmsDatabase(client: PrismaClient = prisma): Promise<Se
   });
   const totalHours = sumResult._sum.workloadHours ?? 0;
 
-  console.log(`  -> Total de Certificados no Banco: ${totalCertificates} (Esperado: 65)`);
-  console.log(`  -> Carga Horária Total no Banco: ${totalHours}h (Esperado: 2164.5h)`);
+  console.log(`  -> Total de Certificados no Banco: ${totalCertificates} (Esperado: 76)`);
+  console.log(`  -> Carga Horária Total no Banco: ${totalHours}h (Esperado: 3090.5h)`);
 
-  if (totalCertificates !== 65) {
-    errors.push(`Discrepância na contagem de certificados: obteve ${totalCertificates}, esperado 65.`);
+  if (totalCertificates !== 76) {
+    errors.push(`Discrepância na contagem de certificados: obteve ${totalCertificates}, esperado 76.`);
   }
-  if (totalHours !== 2164.5) {
-    errors.push(`Discrepância na carga horária: obteve ${totalHours}h, esperado 2164.5h.`);
+  if (totalHours !== 3090.5) {
+    errors.push(`Discrepância na carga horária: obteve ${totalHours}h, esperado 3090.5h.`);
   }
 
   if (errors.length > 0) {

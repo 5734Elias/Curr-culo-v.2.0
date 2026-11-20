@@ -47,16 +47,25 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: `${PROFILE.name} | ${PROFILE.role}`,
-    description: `Portfólio interativo com projetos práticos, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
+    description: `Portfólio profissional com estudos de caso, arquitetura de sistemas, cloud, IA e cibersegurança.`,
     url: SITE_URL,
     siteName: `Portfólio ${PROFILE.name}`,
     locale: 'pt_BR',
     type: 'website',
+    images: [
+      {
+        url: '/images/elias-hero-architecture.webp',
+        width: 1024,
+        height: 1536,
+        alt: `Retrato profissional de ${PROFILE.name}`,
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: `${PROFILE.name} | ${PROFILE.role}`,
-    description: `Portfólio interativo com projetos práticos, certificações e trajetória técnica em sistemas, dados, cloud e IA.`,
+    description: `Portfólio profissional com estudos de caso, arquitetura de sistemas, cloud, IA e cibersegurança.`,
+    images: ['/images/elias-hero-architecture.webp'],
   },
   robots: {
     index: true,
@@ -158,8 +167,8 @@ export default function RootLayout({
           Pular para o conteúdo principal
         </a>
 
-        {/* Global Instance of Cyber Matrix Background */}
-        <CyberMatrixBackground variant="letter-glitch" opacity={0.1} />
+        {/* Textura de fundo discreta (respeita prefers-reduced-motion) */}
+        <CyberMatrixBackground variant="dot-grid" opacity={0.04} />
         <div id="main-content">{children}</div>
       </body>
     </html>
