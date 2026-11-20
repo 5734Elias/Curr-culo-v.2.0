@@ -75,15 +75,20 @@ html.light {
 html {
   scroll-behavior: smooth;
   color-scheme: dark;
+  font-size: 16px;
+  overflow-x: clip;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
 }
 

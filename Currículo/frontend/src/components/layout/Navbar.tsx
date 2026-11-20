@@ -110,7 +110,7 @@ export const Navbar: React.FC = () => {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
-            className="p-2 rounded-[0.25rem] text-[#b9cacb] hover:text-[#00f2ff] hover:bg-[#192122] focus-visible:outline-2 focus-visible:outline-[#00f2ff]"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-2 rounded-[0.25rem] text-[#b9cacb] hover:text-[#00f2ff] hover:bg-[#192122] focus-visible:outline-2 focus-visible:outline-[#00f2ff]"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -134,7 +134,7 @@ export const Navbar: React.FC = () => {
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={clsx(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-[0.25rem] text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-[0.25rem] text-sm font-medium transition-colors',
                   isActive
                     ? 'text-[#00f2ff] bg-[#00f2ff]/10 border border-[#00f2ff]/30 font-semibold'
                     : 'text-[#b9cacb] hover:text-[#dce4e4] hover:bg-[#192122]'
