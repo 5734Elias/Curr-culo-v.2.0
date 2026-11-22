@@ -23,24 +23,22 @@ console.log('================================================================');
 console.log('\n[1/8] Testando validações de Content-Type, bytes UTF-8 e streaming na API /api/contact...');
 
 // 1.1 Rejeição de Content-Type inválido ou ausente (HTTP 415)
-const reqWrongContentType = new NextRequest('http://localhost:3000/api/contact', {
-  method: 'POST',
-  headers: {
-    'content-type': 'text/plain',
-  },
-  body: 'Nome=Teste',
-});
-const resWrongContentType = await POST(reqWrongContentType);
-assert.strictEqual(resWrongContentType.status, 415, 'Requisição sem application/json deve retornar HTTP 415.');
-const bodyWrongContentType = await resWrongContentType.json();
-assert.strictEqual(bodyWrongContentType.code, 'UNSUPPORTED_MEDIA_TYPE');
+for (const mediaType of ['text/plain', 'application/json-patch+json', '']) {
+  const req = new NextRequest('http://localhost:3000/api/contact', {
+    method: 'POST',
+    headers: mediaType ? { 'content-type': mediaType } : {},
+  });
+  const res = await POST(req);
+  assert.strictEqual(res.status, 415);
+  assert.strictEqual((await res.json()).code, 'UNSUPPORTED_MEDIA_TYPE');
+}
 console.log('  -> Rejeição de Content-Type não suportado (HTTP 415): OK');
 
 // 1.2 Rejeição de Payload excedendo 10KB via Content-Length (HTTP 413)
 const reqOversizedHeader = new NextRequest('http://localhost:3000/api/contact', {
   method: 'POST',
   headers: {
-    'content-type': 'application/json',
+    'content-type': 'Application/JSON; charset=utf-8',
     'content-length': '15000',
   },
   body: JSON.stringify({ name: 'A' }),
