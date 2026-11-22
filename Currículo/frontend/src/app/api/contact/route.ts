@@ -8,7 +8,8 @@ export async function POST(req: NextRequest) {
   try {
     // 1. Validação de Content-Type (Rejeita tipos não suportados com HTTP 415)
     const contentType = req.headers.get('content-type') || '';
-    if (!contentType.toLowerCase().includes('application/json')) {
+    const mediaType = contentType.split(';', 1)[0].trim().toLowerCase();
+    if (mediaType !== 'application/json') {
       return NextResponse.json(
         {
           success: false,
